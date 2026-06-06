@@ -45,15 +45,8 @@ export function TripForm({ onSubmit, loading }: Props) {
   const isValid = form.startDate && form.spots.length > 0 && form.hotelName;
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="sticky top-8 rounded-2xl bg-white p-6 shadow-lg ring-1 ring-gray-200"
-    >
-      <h2 className="mb-5 flex items-center gap-2 text-lg font-bold text-gray-800">
-        <span className="text-xl">✏️</span> 行程設定
-      </h2>
-
-      <div className="space-y-5">
+    <form onSubmit={handleSubmit}>
+      <div className="space-y-4">
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">
             📅 出發日期
@@ -243,11 +236,11 @@ export function TripForm({ onSubmit, loading }: Props) {
           disabled={!isValid || loading}
           className={`w-full rounded-xl py-3 text-sm font-bold transition ${
             isValid && !loading
-              ? "bg-korea-blue text-white shadow-md hover:bg-blue-800 active:scale-[0.98]"
+              ? "bg-korea-blue text-white shadow-md active:scale-[0.98]"
               : "cursor-not-allowed bg-gray-200 text-gray-400"
           }`}
         >
-          {loading ? "🤖 AI 排程中..." : "🚀 開始 AI 智慧排程"}
+          {loading ? "🤖 AI 排程中..." : "🚀 AI 智慧排程"}
         </button>
       </div>
     </form>
