@@ -1,4 +1,5 @@
 import { TripPlan } from "../types";
+import { TripMap } from "./TripMap";
 
 interface Props {
   plan: TripPlan;
@@ -21,6 +22,8 @@ export function ItineraryView({ plan }: Props) {
 
   return (
     <div className="space-y-6">
+      <TripMap plan={plan} />
+
       <div className="rounded-2xl bg-gradient-to-br from-korea-blue to-blue-900 p-6 text-white shadow-xl">
         <div className="flex items-center justify-between">
           <div>

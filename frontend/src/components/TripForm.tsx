@@ -179,8 +179,18 @@ export function TripForm({ onSubmit, loading }: Props) {
                 setShowSpotPicker(true);
               }}
               onFocus={() => setShowSpotPicker(true)}
-              placeholder="搜尋或輸入自訂景點..."
+              placeholder="輸入景點名稱，按 Enter 加入（可自由輸入任何景點）"
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-korea-blue focus:outline-none focus:ring-2 focus:ring-korea-blue/20"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  if (query.trim()) {
+                    toggleSpot(query.trim());
+                    setQuery("");
+                    setShowSpotPicker(false);
+                  }
+                }
+              }}
             />
             {showSpotPicker && (query || filteredSpots.length > 0) && (
               <div className="absolute z-20 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg">
@@ -202,29 +212,30 @@ export function TripForm({ onSubmit, loading }: Props) {
                   <button
                     type="button"
                     onClick={() => {
-                      toggleSpot(query);
+                      toggleSpot(query.trim());
                       setQuery("");
                       setShowSpotPicker(false);
                     }}
-                    className="w-full px-3 py-2 text-left text-sm italic text-korea-blue hover:bg-blue-50"
+                    className="w-full border-t border-dashed border-gray-200 px-3 py-2 text-left text-sm font-medium text-korea-blue hover:bg-blue-50"
                   >
-                    + 新增「{query}」
+                    ✏️ 新增「{query.trim()}」
                   </button>
-                )}
-                {filteredSpots.length === 0 && !query && (
-                  <p className="px-3 py-2 text-sm text-gray-400">
-                    從上方熱門景點中選擇
-                  </p>
                 )}
               </div>
             )}
           </div>
 
-          {form.spots.length === 0 && (
-            <p className="mt-1 text-xs text-gray-400">
-              至少選擇一個景點，AI 會自動排序最佳路線
-            </p>
-          )}
+          <div className="flex items-center justify-between">
+            {form.spots.length === 0 ? (
+              <p className="text-xs text-gray-400">
+                輸入任何韓國景點名稱後按 Enter 或點選新增
+              </p>
+            ) : (
+              <p className="text-xs text-gray-400">
+                已加入 {form.spots.length} 個景點
+              </p>
+            )}
+          </div>
         </div>
 
         <button

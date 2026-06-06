@@ -9,6 +9,8 @@ export interface ScheduleItem {
   time_slots: string;
   spot_name: string;
   korean_name: string;
+  lat?: number;
+  lng?: number;
   estimated_stay_mins: number;
   is_reservation_required: boolean;
   reservation_guide: string;

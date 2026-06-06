@@ -9,7 +9,8 @@ const SYSTEM_PROMPT = `你是一位精通南韓自由行（特別是首爾、釜
 2. 景點之間的順序必須依據地理位置由近到遠優化，拒絕走回頭路。
 3. 計算兩點之間的交通時，預估合理的南韓大眾運輸費用（地鐵基本費1,400韓元起）或計程車車資（韓元）。
 4. 識別哪些景點是需要提前預約的（如：膠囊列車、特定夜間開放、熱門餐廳），並給出預約時程建議。
-5. 請直接以純 JSON 格式回傳，不要包含任何 markdown 語法外殼（不要包裹 \`\`\`json），必須符合指定的 Schema。`;
+5. 請直接以純 JSON 格式回傳，不要包含任何 markdown 語法外殼（不要包裹 \`\`\`json），必須符合指定的 Schema。
+6. 每個 schedule item 請附上 approximate lat/lng 經緯度座標（WGS84），以便前端地圖渲染。`;
 
 function buildUserPrompt(req: TripRequest): string {
   return `【使用者輸入資料】
@@ -36,6 +37,8 @@ function buildUserPrompt(req: TripRequest): string {
           "time_slots": "09:00 - 11:30",
           "spot_name": "景點名稱",
           "korean_name": "韓文名稱",
+          "lat": 37.5796,
+          "lng": 126.9770,
           "estimated_stay_mins": 150,
           "is_reservation_required": true,
           "reservation_guide": "預約開放規則與注意事項，若不需預約則填寫無",
