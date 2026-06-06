@@ -22,9 +22,16 @@ router.post("/plan", async (req: Request, res: Response) => {
     res.json(response);
   } catch (err: any) {
     console.error("AI 排程錯誤:", err);
+    const isTimeout =
+      err?.message?.includes("timeout") ||
+      err?.message?.includes("TIMEOUT") ||
+      err?.name === "AbortError" ||
+      err?.code === "ETIMEDOUT";
     const response: ApiResponse = {
       success: false,
-      error: err.message || "AI 排程服務異常，請稍後再試",
+      error: isTimeout
+        ? "AI 排程請求逾時，請減少景點數量或簡化行程後重試"
+        : err.message || "AI 排程服務異常，請稍後再試",
     };
     res.status(500).json(response);
   }
