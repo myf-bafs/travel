@@ -55,7 +55,7 @@ export async function generateTripPlan(req: TripRequest): Promise<TripPlan> {
   const client = new OpenAI({
     apiKey,
     baseURL,
-    timeout: 8000,
+    timeout: 9000,
     maxRetries: 0,
   });
 
@@ -66,7 +66,7 @@ export async function generateTripPlan(req: TripRequest): Promise<TripPlan> {
       { role: "user", content: buildUserPrompt(req) },
     ],
     temperature: 0.1,
-    max_tokens: 1024,
+    max_tokens: 3072,
   });
 
   const content = response.choices[0]?.message?.content;
