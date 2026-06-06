@@ -1,4 +1,5 @@
 export interface TripRequest {
+  destination: string;
   startDate: string;
   totalDays: number;
   dailyStartTime: string;
@@ -9,22 +10,22 @@ export interface TripRequest {
 }
 
 export interface TransitInfo {
-  mode: "Subway" | "Bus" | "Taxi" | "Walk";
+  mode: "Subway" | "Bus" | "Taxi" | "Walk" | "KTX";
   duration_mins: number;
   estimated_cost_krw: number;
-  route_note: string;
+  route_note?: string;
 }
 
 export interface ScheduleItem {
   time_slots: string;
   spot_name: string;
-  korean_name: string;
+  korean_name?: string;
   lat?: number;
   lng?: number;
   estimated_stay_mins: number;
-  is_reservation_required: boolean;
-  reservation_guide: string;
-  notices: string[];
+  is_reservation_required?: boolean;
+  reservation_guide?: string;
+  notices?: string[];
   transit_to_next: TransitInfo;
 }
 
@@ -48,5 +49,22 @@ export interface TripPlan {
 export interface ApiResponse {
   success: boolean;
   data?: TripPlan;
+  error?: string;
+}
+
+export interface SuggestRequest {
+  destination: string;
+  dayKey: string;
+  existingSpots: string[];
+}
+
+export interface SuggestionItem {
+  spot_name: string;
+  reason: string;
+}
+
+export interface SuggestResponse {
+  success: boolean;
+  data?: { suggestions: SuggestionItem[] };
   error?: string;
 }

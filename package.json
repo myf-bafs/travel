@@ -11,9 +11,11 @@
     "install:all": "npm install --prefix backend && npm install --prefix frontend"
   },
   "dependencies": {
+    "@types/sortablejs": "^1.15.9",
     "cors": "^2.8.5",
     "express": "^4.21.1",
-    "openai": "^4.77.0"
+    "openai": "^4.77.0",
+    "sortablejs": "^1.15.7"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

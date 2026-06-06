@@ -1,248 +1,135 @@
-import { useState } from "react";
-import { TripFormData, POPULAR_SPOTS, PACE_OPTIONS } from "../types";
+import { useState, useRef } from "react";
+import { TripFormData, getPopularSpots, PACE_OPTIONS } from "../types";
 
 interface Props {
+  initial: TripFormData;
   onSubmit: (data: TripFormData) => void;
   loading: boolean;
 }
 
-export function TripForm({ onSubmit, loading }: Props) {
-  const [form, setForm] = useState<TripFormData>({
-    startDate: "",
-    totalDays: 3,
-    dailyStartTime: "09:00",
-    dailyEndTime: "20:00",
-    hotelName: "",
-    spots: [],
-    pace: "一般",
-  });
-  const [query, setQuery] = useState("");
-  const [showSpotPicker, setShowSpotPicker] = useState(false);
+export function TripForm({ initial, onSubmit, loading }: Props) {
+  const [destination] = useState(initial.destination);
+  const [startDate, setStartDate] = useState(initial.startDate);
+  const [totalDays, setTotalDays] = useState(initial.totalDays);
+  const [dailyStartTime, setDailyStartTime] = useState(initial.dailyStartTime);
+  const [dailyEndTime, setDailyEndTime] = useState(initial.dailyEndTime);
+  const [hotelName, setHotelName] = useState(initial.hotelName);
+  const [pace, setPace] = useState(initial.pace);
+  const [spots, setSpots] = useState<string[]>(initial.spots);
+  const [input, setInput] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const filteredSpots = POPULAR_SPOTS.filter(
-    (s) => s.includes(query) && !form.spots.includes(s)
-  );
-
-  const toggleSpot = (spot: string) => {
-    setForm((f) => ({
-      ...f,
-      spots: f.spots.includes(spot)
-        ? f.spots.filter((s) => s !== spot)
-        : [...f.spots, spot],
-    }));
+  const addSpot = (s: string) => {
+    const trimmed = s.trim();
+    if (trimmed && !spots.includes(trimmed)) {
+      setSpots((prev) => [...prev, trimmed]);
+    }
+    setInput("");
+    inputRef.current?.focus();
   };
 
-  const removeSpot = (spot: string) => {
-    setForm((f) => ({ ...f, spots: f.spots.filter((s) => s !== spot) }));
+  const removeSpot = (s: string) => {
+    setSpots((prev) => prev.filter((x) => x !== s));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.startDate || form.spots.length === 0 || !form.hotelName) return;
-    onSubmit(form);
+  const handleSubmit = () => {
+    if (!hotelName) return;
+    onSubmit({
+      destination,
+      startDate,
+      totalDays,
+      dailyStartTime,
+      dailyEndTime,
+      hotelName,
+      spots,
+      pace,
+    });
   };
 
-  const isValid = form.startDate && form.spots.length > 0 && form.hotelName;
+  const suggested = getPopularSpots(destination).filter((s) => !spots.includes(s));
 
   return (
-    <form onSubmit={handleSubmit}>
-      <div className="space-y-4">
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">
-            📅 出發日期
-          </label>
-          <input
-            type="date"
-            value={form.startDate}
-            onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-korea-blue focus:outline-none focus:ring-2 focus:ring-korea-blue/20"
-            required
-          />
+    <div className="space-y-3">
+      {/* Hotel + dates */}
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <label className="mb-1 block text-xs text-gray-400">住宿</label>
+          <input type="text" value={hotelName} onChange={(e) => setHotelName(e.target.value)}
+            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-korea-blue focus:outline-none" />
         </div>
-
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">
-            📆 旅遊天數
-          </label>
-          <input
-            type="number"
-            min={1}
-            max={14}
-            value={form.totalDays}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, totalDays: Math.max(1, Math.min(14, +e.target.value)) }))
-            }
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-korea-blue focus:outline-none focus:ring-2 focus:ring-korea-blue/20"
-          />
+        <div className="w-28">
+          <label className="mb-1 block text-xs text-gray-400">日期</label>
+          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
+            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-korea-blue focus:outline-none" />
         </div>
+      </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              🕐 每日開始
-            </label>
-            <input
-              type="time"
-              value={form.dailyStartTime}
-              onChange={(e) => setForm((f) => ({ ...f, dailyStartTime: e.target.value }))}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-korea-blue focus:outline-none focus:ring-2 focus:ring-korea-blue/20"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              🕐 每日結束
-            </label>
-            <input
-              type="time"
-              value={form.dailyEndTime}
-              onChange={(e) => setForm((f) => ({ ...f, dailyEndTime: e.target.value }))}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-korea-blue focus:outline-none focus:ring-2 focus:ring-korea-blue/20"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">
-            🏨 飯店 / 每日起訖點
-          </label>
-          <input
-            type="text"
-            value={form.hotelName}
-            onChange={(e) => setForm((f) => ({ ...f, hotelName: e.target.value }))}
-            placeholder="例：明洞九樹飯店 (Nine Tree Hotel)"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-korea-blue focus:outline-none focus:ring-2 focus:ring-korea-blue/20"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">
-            🏃 旅行步調
-          </label>
-          <div className="grid grid-cols-3 gap-2">
-            {PACE_OPTIONS.map((p) => (
-              <button
-                type="button"
-                key={p.value}
-                onClick={() => setForm((f) => ({ ...f, pace: p.value }))}
-                className={`rounded-lg border px-3 py-2 text-center text-xs transition ${
-                  form.pace === p.value
-                    ? "border-korea-blue bg-korea-blue text-white"
-                    : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-                }`}
-              >
-                <div className="font-medium">{p.label}</div>
-                <div className="mt-0.5 opacity-70">{p.desc}</div>
-              </button>
+      {/* Days + pace */}
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <label className="mb-1 block text-xs text-gray-400">天數</label>
+          <select value={totalDays} onChange={(e) => setTotalDays(Number(e.target.value))}
+            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-korea-blue focus:outline-none">
+            {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+              <option key={n} value={n}>{n} 天</option>
             ))}
+          </select>
+        </div>
+        <div className="flex-1">
+          <label className="mb-1 block text-xs text-gray-400">步調</label>
+          <select value={pace} onChange={(e) => setPace(e.target.value as TripFormData["pace"])}
+            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-korea-blue focus:outline-none">
+            {PACE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex-1">
+          <label className="mb-1 block text-xs text-gray-400">時間</label>
+          <div className="flex items-center gap-1">
+            <input type="time" value={dailyStartTime} onChange={(e) => setDailyStartTime(e.target.value)}
+              className="w-full rounded-xl border border-gray-200 px-2 py-2 text-xs focus:border-korea-blue focus:outline-none" />
+            <span className="text-xs text-gray-300">~</span>
+            <input type="time" value={dailyEndTime} onChange={(e) => setDailyEndTime(e.target.value)}
+              className="w-full rounded-xl border border-gray-200 px-2 py-2 text-xs focus:border-korea-blue focus:outline-none" />
           </div>
         </div>
+      </div>
 
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">
-            🎯 景點願望清單
-          </label>
+      {/* Spots */}
+      <div className="flex flex-wrap gap-1.5">
+        {spots.map((s) => (
+          <span key={s} className="inline-flex items-center gap-1 rounded-lg bg-korea-blue/10 px-2.5 py-1 text-xs font-medium text-korea-blue">
+            {s}
+            <button onClick={() => removeSpot(s)} className="text-korea-blue/50">✕</button>
+          </span>
+        ))}
+      </div>
 
-          {form.spots.length > 0 && (
-            <div className="mb-2 flex flex-wrap gap-1.5">
-              {form.spots.map((s) => (
-                <span
-                  key={s}
-                  className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-korea-blue"
-                >
-                  {s}
-                  <button
-                    type="button"
-                    onClick={() => removeSpot(s)}
-                    className="ml-0.5 text-blue-400 hover:text-red-500"
-                  >
-                    ✕
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-
-          <div className="relative">
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                setShowSpotPicker(true);
-              }}
-              onFocus={() => setShowSpotPicker(true)}
-              placeholder="輸入景點名稱，按 Enter 加入（可自由輸入任何景點）"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-korea-blue focus:outline-none focus:ring-2 focus:ring-korea-blue/20"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  if (query.trim()) {
-                    toggleSpot(query.trim());
-                    setQuery("");
-                    setShowSpotPicker(false);
-                  }
-                }
-              }}
-            />
-            {showSpotPicker && (query || filteredSpots.length > 0) && (
-              <div className="absolute z-20 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg">
-                {filteredSpots.map((s) => (
-                  <button
-                    type="button"
-                    key={s}
-                    onClick={() => {
-                      toggleSpot(s);
-                      setQuery("");
-                      setShowSpotPicker(false);
-                    }}
-                    className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50"
-                  >
-                    {s}
-                  </button>
-                ))}
-                {query && !POPULAR_SPOTS.includes(query) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      toggleSpot(query.trim());
-                      setQuery("");
-                      setShowSpotPicker(false);
-                    }}
-                    className="w-full border-t border-dashed border-gray-200 px-3 py-2 text-left text-sm font-medium text-korea-blue hover:bg-blue-50"
-                  >
-                    ✏️ 新增「{query.trim()}」
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center justify-between">
-            {form.spots.length === 0 ? (
-              <p className="text-xs text-gray-400">
-                輸入任何韓國景點名稱後按 Enter 或點選新增
-              </p>
-            ) : (
-              <p className="text-xs text-gray-400">
-                已加入 {form.spots.length} 個景點
-              </p>
-            )}
-          </div>
-        </div>
-
-        <button
-          type="submit"
-          disabled={!isValid || loading}
-          className={`w-full rounded-xl py-3 text-sm font-bold transition ${
-            isValid && !loading
-              ? "bg-korea-blue text-white shadow-md active:scale-[0.98]"
-              : "cursor-not-allowed bg-gray-200 text-gray-400"
-          }`}
-        >
-          {loading ? "🤖 AI 排程中..." : "🚀 AI 智慧排程"}
+      <div className="flex gap-2">
+        <input ref={inputRef} type="text" value={input} onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addSpot(input))}
+          placeholder="輸入景點名稱，Enter 加入" className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm placeholder-gray-300 focus:border-korea-blue focus:outline-none" />
+        <button onClick={() => addSpot(input)} disabled={!input.trim()}
+          className="rounded-xl bg-korea-blue px-4 text-xs font-bold text-white disabled:opacity-40">＋</button>
+        <button onClick={handleSubmit} disabled={loading || spots.length === 0 || !hotelName}
+          className="rounded-xl bg-korea-blue px-4 text-xs font-bold text-white disabled:opacity-40">
+          {loading ? "..." : "AI 排程"}
         </button>
       </div>
-    </form>
+
+      {/* Suggested spots */}
+      {suggested.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          <span className="text-[10px] text-gray-400 leading-6">熱門：</span>
+          {suggested.slice(0, 6).map((s) => (
+            <button key={s} onClick={() => addSpot(s)}
+              className="rounded-full border border-gray-200 px-2.5 py-0.5 text-[10px] text-gray-500 active:bg-gray-50">
+              +{s}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
