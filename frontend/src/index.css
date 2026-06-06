@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-korea-cream text-gray-800 antialiased;
+  }
+}
+
+@layer components {
+  .timeline-dot {
+    @apply absolute left-0 top-2 z-10 h-4 w-4 rounded-full border-4 border-white shadow-md;
+  }
+  .timeline-line {
+    @apply absolute left-2 top-6 h-full w-0.5 -translate-x-1/2;
+  }
+}
