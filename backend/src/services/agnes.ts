@@ -50,12 +50,9 @@ export async function generateTripPlan(req: TripRequest): Promise<TripPlan> {
     throw new Error("AGNES_API_KEY 未設定，請檢查 .env 檔案");
   }
 
-  const abortCtrl = new AbortController();
-
   const client = new OpenAI({
     apiKey,
     baseURL,
-    timeout: 9000,
     maxRetries: 0,
   });
 
