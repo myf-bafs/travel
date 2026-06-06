@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { DayPlan, TripPlan } from "../types";
+import { TripPlan } from "../types";
 
 interface Props {
   plan: TripPlan;
@@ -17,7 +17,7 @@ export function TripMap({ plan }: Props) {
     if (!containerRef.current || mapRef.current) return;
 
     const map = L.map(containerRef.current, {
-      zoomControl: true,
+      zoomControl: false,
       attributionControl: false,
     }).setView([36.5, 127.5], 7);
 
@@ -25,9 +25,10 @@ export function TripMap({ plan }: Props) {
       maxZoom: 18,
     }).addTo(map);
 
+    L.control.zoom({ position: "bottomright" }).addTo(map);
+
     mapRef.current = map;
 
-    const allItems: { dayIdx: number; item: any }[] = [];
     const dayKeys = Object.keys(plan.itinerary).sort((a, b) => {
       return parseInt(a.replace(/\D/g, "")) - parseInt(b.replace(/\D/g, ""));
     });
@@ -37,23 +38,25 @@ export function TripMap({ plan }: Props) {
     dayKeys.forEach((key, dayIdx) => {
       const day = plan.itinerary[key];
       const color = DAY_COLORS[dayIdx % DAY_COLORS.length];
+      const dayCoords: L.LatLng[] = [];
 
-      day.schedule.forEach((item, idx) => {
+      day.schedule.forEach((item) => {
         if (item.lat != null && item.lng != null) {
           const pos = L.latLng(item.lat, item.lng);
+          dayCoords.push(pos);
           bounds.extend(pos);
 
           const icon = L.divIcon({
             className: "",
             html: `<div style="
-              width: 32px; height: 32px; border-radius: 50%;
+              width: 30px; height: 30px; border-radius: 50%;
               background: ${color}; color: white;
               display: flex; align-items: center; justify-content: center;
-              font-size: 12px; font-weight: bold; border: 2px solid white;
-              box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+              font-size: 11px; font-weight: bold; border: 2.5px solid white;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.25);
             ">${dayIdx + 1}</div>`,
-            iconSize: [32, 32],
-            iconAnchor: [16, 16],
+            iconSize: [30, 30],
+            iconAnchor: [15, 15],
           });
 
           const marker = L.marker(pos, { icon }).addTo(map);
@@ -63,18 +66,28 @@ export function TripMap({ plan }: Props) {
           const dow = dayNames[new Date(y, m - 1, d).getDay()];
 
           marker.bindPopup(`
-            <div style="min-width:180px">
-              <div style="font-weight:700;font-size:14px;margin-bottom:2px">${item.spot_name}</div>
-              <div style="color:#666;font-size:12px">第${dayIdx + 1}天（${day.date} 週${dow}）</div>
-              <div style="color:#666;font-size:12px">${item.time_slots}</div>
+            <div style="min-width:160px;font-family:sans-serif">
+              <div style="font-weight:700;font-size:13px;margin-bottom:2px">${item.spot_name}</div>
+              <div style="color:#666;font-size:11px">第${dayIdx + 1}天 · ${day.date} 週${dow}</div>
+              <div style="color:#999;font-size:11px">${item.time_slots}</div>
             </div>
           `);
         }
       });
+
+      // Draw route line for this day
+      if (dayCoords.length > 1) {
+        const polyline = L.polyline(dayCoords, {
+          color,
+          weight: 2.5,
+          opacity: 0.5,
+          dashArray: "6, 8",
+        }).addTo(map);
+      }
     });
 
     if (bounds.isValid()) {
-      map.fitBounds(bounds, { padding: [60, 60] });
+      map.fitBounds(bounds, { padding: [50, 50] });
     }
 
     return () => {
@@ -84,18 +97,25 @@ export function TripMap({ plan }: Props) {
   }, [plan]);
 
   return (
-    <div className="overflow-hidden rounded-2xl shadow-lg ring-1 ring-gray-200">
-      <div ref={containerRef} className="h-[400px] w-full" />
-      <div className="flex flex-wrap gap-3 border-t border-gray-100 bg-white px-5 py-3 text-xs text-gray-500">
+    <div className="overflow-hidden rounded-2xl shadow-md ring-1 ring-gray-200">
+      <div ref={containerRef} className="h-[220px] w-full sm:h-[280px]" />
+      <div className="flex flex-wrap gap-3 border-t border-gray-100 bg-white px-4 py-2.5 text-xs text-gray-500">
         {Object.keys(plan.itinerary).map((key, i) => (
           <span key={key} className="flex items-center gap-1.5">
             <span
-              className="inline-block h-3 w-3 rounded-full"
+              className="inline-block h-2.5 w-2.5 rounded-full"
               style={{ backgroundColor: DAY_COLORS[i % DAY_COLORS.length] }}
             />
             第 {i + 1} 天
           </span>
         ))}
+        <span className="ml-auto text-[10px] text-gray-300">
+          {Object.values(plan.itinerary).reduce(
+            (sum, d) => sum + d.schedule.length,
+            0
+          )}{" "}
+          個景點
+        </span>
       </div>
     </div>
   );
