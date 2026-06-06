@@ -202,9 +202,11 @@ export function ItineraryView({ plan: initialPlan }: Props) {
                           <p className="text-sm font-bold text-gray-800 truncate">
                             {item.spot_name}
                           </p>
-                          <p className="text-[11px] text-gray-400 truncate">
-                            {item.korean_name}
-                          </p>
+                          {item.korean_name && (
+                            <p className="text-[11px] text-gray-400 truncate">
+                              {item.korean_name}
+                            </p>
+                          )}
                         </div>
 
                         {/* Edit controls */}
@@ -249,7 +251,7 @@ export function ItineraryView({ plan: initialPlan }: Props) {
                       </div>
 
                       {/* Notices */}
-                      {!isEditing && item.notices.length > 0 && (
+                      {!isEditing && item.notices?.length > 0 && (
                         <div className="mt-1.5 space-y-0.5">
                           {item.notices.map((n, ni) => (
                             <p
