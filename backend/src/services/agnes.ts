@@ -47,7 +47,7 @@ export async function generateTripPlan(req: TripRequest): Promise<TripPlan> {
       { role: "user", content: buildUserPrompt(req) },
     ],
     temperature: 0.1,
-    max_tokens: 1536,
+    max_tokens: 2048,
   });
 
   const content = response.choices[0]?.message?.content;
