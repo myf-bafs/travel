@@ -8,8 +8,8 @@ router.post("/plan", async (req: Request, res: Response) => {
   try {
     const body: TripRequest = req.body;
 
-    if (!body.startDate || !body.totalDays || !body.spots?.length || !body.hotelName) {
-      const response: ApiResponse = { success: false, error: "缺少必要欄位：startDate, totalDays, spots, hotelName" };
+    if (!body.startDate || !body.totalDays || !body.hotelName) {
+      const response: ApiResponse = { success: false, error: "缺少必要欄位：startDate, totalDays, hotelName" };
       res.status(400).json(response);
       return;
     }

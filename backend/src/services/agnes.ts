@@ -17,11 +17,15 @@ function buildUserPrompt(req: TripRequest): string {
     return `"day_${i + 1}":{"date":"${dateStr}","daily_transit_cost_krw":0,"schedule":[{"time_slots":"09:00-11:00","spot_name":"景點","estimated_stay_mins":120,"transit_to_next":{"mode":"Subway","duration_mins":20,"estimated_cost_krw":0}}]}`;
   }).join(",");
 
+  const spotsText = req.spots.length > 0
+    ? `指定景點：${req.spots.join("、")}`
+    : `請根據「${req.destination}」熱門景點，推薦並安排每日行程`;
+
   return `【輸入】
 目的地：${req.destination}
 ${req.startDate} ${req.totalDays}天 ${req.dailyStartTime}-${req.dailyEndTime}
 飯店：${req.hotelName}  步調：${req.pace}
-景點：${req.spots.join("、")}
+${spotsText}
 
 【JSON】
 {"trip_summary":{"total_days":${req.totalDays},"estimated_total_transit_cost_krw":0,"general_recommendations":"一句話建議"},"itinerary":{${dayStubs}}}`;
