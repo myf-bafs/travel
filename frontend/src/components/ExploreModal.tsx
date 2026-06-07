@@ -1,68 +1,87 @@
 import { useState } from "react";
-import { getPopularSpots } from "../types";
+import { GLOBAL_SPOTS, GlobalSpot } from "../types";
+import { MapPin } from "@phosphor-icons/react";
 
 interface Props {
   destination: string;
   dayKeys: string[];
   existingSpots: string[];
-  onAdd: (spot: string, dayKey: string) => void;
+  onAdd: (spot: GlobalSpot, dayKey: string) => void;
   onClose: () => void;
 }
 
 export function ExploreModal({ destination, dayKeys, existingSpots, onAdd, onClose }: Props) {
-  const [added, setAdded] = useState<Record<string, boolean>>({});
-  const spots = getPopularSpots(destination);
+  const [search, setSearch] = useState("");
 
-  const handleAdd = (spot: string, dayKey: string) => {
-    onAdd(spot, dayKey);
-    setAdded((prev) => ({ ...prev, [`${dayKey}:${spot}`]: true }));
-    setTimeout(() => setAdded((prev) => ({ ...prev, [`${dayKey}:${spot}`]: false })), 1500);
-  };
+  const spots = GLOBAL_SPOTS.filter((s) => {
+    const matchesCity = destination.includes(s.city) || s.city.includes(destination);
+    const matchesSearch = !search || s.name.includes(search) || s.city.includes(search);
+    return matchesCity && matchesSearch;
+  });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40">
-      <div className="w-full max-w-sm rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl max-h-[70vh] flex flex-col">
-        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-          <h2 className="text-base font-bold text-gray-800">🔍 探索 {destination} 景點</h2>
-          <button onClick={onClose} className="text-lg text-gray-400 active:text-gray-600">✕</button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[80vh] modal-enter">
+        <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+          <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <MapPin className="text-primary-blue" size={22} weight="fill" />
+            探索景點
+          </h3>
+          <button onClick={onClose} className="p-1 text-slate-400 hover:bg-slate-200 rounded-md transition">
+            <span className="text-xl">✕</span>
+          </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-3">
-          {spots.length === 0 ? (
-            <p className="py-8 text-center text-xs text-gray-400">暫無推薦景點清單</p>
-          ) : (
-            <div className="space-y-2">
-              {spots.map((spot) => {
-                const alreadyAdded = existingSpots.includes(spot);
-                return (
-                  <div key={spot} className="flex items-center justify-between rounded-xl border border-gray-100 px-4 py-3">
-                    <div>
-                      <p className="text-sm font-medium text-gray-800">{spot}</p>
-                    </div>
-                    <div className="flex gap-1">
-                      {dayKeys.map((key) => {
-                        const id = `${key}:${spot}`;
-                        return (
-                          <button
-                            key={key}
-                            onClick={() => handleAdd(spot, key)}
-                            disabled={alreadyAdded}
-                            className={`rounded-lg px-2 py-1 text-[10px] font-medium transition ${
-                              added[id]
-                                ? "bg-green-500 text-white"
-                                : alreadyAdded
-                                ? "bg-gray-100 text-gray-300 cursor-not-allowed"
-                                : "bg-korea-blue/10 text-korea-blue active:bg-korea-blue/20"
-                            }`}
-                          >
-                            {added[id] ? "✓" : alreadyAdded ? "已加入" : `+${key.replace("day_", "D")}`}
-                          </button>
-                        );
-                      })}
-                    </div>
+        <div className="p-3 border-b border-slate-100">
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">🔍</span>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="搜尋景點（如：晴空塔、羅浮宮）..."
+              className="w-full bg-slate-100 border-none rounded-lg pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-primary-blue outline-none"
+            />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {spots.map((s) => {
+            const added = existingSpots.includes(s.name);
+            return (
+              <div key={s.id} className="border border-slate-200 rounded-xl p-4 hover:border-blue-300 hover:shadow-md transition cursor-pointer bg-white flex flex-col justify-between">
+                <div>
+                  <div className="flex justify-between items-start mb-1">
+                    <h4 className="font-bold text-slate-800 flex items-center gap-1">
+                      <MapPin className="text-primary-blue" size={16} weight="fill" />
+                      {s.name}
+                    </h4>
+                    <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded">{s.city}</span>
                   </div>
-                );
-              })}
+                  <p className="text-xs text-slate-500 line-clamp-2">{s.desc}</p>
+                </div>
+                <div className="flex gap-1.5 mt-3">
+                  {dayKeys.map((key) => (
+                    <button
+                      key={key}
+                      onClick={() => onAdd(s, key)}
+                      disabled={added}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition ${
+                        added
+                          ? "bg-slate-100 text-slate-300 cursor-not-allowed"
+                          : "bg-slate-50 hover:bg-blue-50 text-primary-blue border border-slate-200 hover:border-blue-200"
+                      }`}
+                    >
+                      {added ? "✓ 已加入" : `+ ${key.replace("day_", "Day ")}`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+          {spots.length === 0 && (
+            <div className="col-span-2 py-10 text-center text-slate-400 text-sm">
+              沒有符合的景點
             </div>
           )}
         </div>

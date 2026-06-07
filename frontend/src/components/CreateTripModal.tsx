@@ -1,162 +1,104 @@
 import { useState } from "react";
-import { TripFormData, POPULAR_SPOTS, PACE_OPTIONS } from "../types";
+import { GLOBAL_SPOTS } from "../types";
+import { ArrowsDownUp, MapPin, CalendarBlank, AirplaneTilt } from "@phosphor-icons/react";
 
 interface Props {
-  onSubmit: (data: TripFormData) => void;
+  onSubmit: (data: { destination: string; startDate: string; totalDays: number; spots?: string[] }) => void;
   loading: boolean;
   onClose: () => void;
 }
 
-const DESTINATIONS = Object.keys(POPULAR_SPOTS);
+const DAYS_OPTIONS = [1, 2, 3, 4, 5, 6, 7];
+const CITIES = [...new Set(GLOBAL_SPOTS.map((s) => s.city))];
 
 export function CreateTripModal({ onSubmit, loading, onClose }: Props) {
-  const [destination, setDestination] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [totalDays, setTotalDays] = useState(2);
-  const [dailyStartTime, setDailyStartTime] = useState("09:00");
-  const [dailyEndTime, setDailyEndTime] = useState("21:00");
-  const [hotelName, setHotelName] = useState("");
-  const [pace, setPace] = useState<TripFormData["pace"]>("一般");
-  const [step, setStep] = useState<"destination" | "details">("destination");
-
-  const today = new Date();
-  const minDate = today.toISOString().split("T")[0];
-
-  const handleDestinationSelect = (d: string) => {
-    setDestination(d);
-    setStep("details");
-  };
+  const [destination, setDestination] = useState("東京");
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d.toISOString().split("T")[0];
+  });
+  const [totalDays, setTotalDays] = useState(3);
 
   const handleSubmit = () => {
-    if (!destination || !startDate || !hotelName) return;
-    onSubmit({
-      destination,
-      startDate,
-      totalDays,
-      dailyStartTime,
-      dailyEndTime,
-      hotelName,
-      spots: [],
-      pace,
-    });
+    if (!destination || !startDate) return;
+    onSubmit({ destination, startDate, totalDays });
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-          <h2 className="text-base font-bold text-gray-800">
-            {step === "destination" ? "🌍 建立新旅程" : "📅 行程細節"}
-          </h2>
-          <button onClick={onClose} className="text-lg text-gray-400 active:text-gray-600">✕</button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden modal-enter p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+            <AirplaneTilt className="text-primary-blue" size={24} weight="fill" />
+            建立新旅程
+          </h3>
+          <button onClick={onClose} className="p-1 text-slate-400 hover:bg-slate-100 rounded-md transition">
+            <span className="text-xl">✕</span>
+          </button>
         </div>
 
-        {step === "destination" ? (
-          <div className="px-5 py-4">
-            <p className="mb-3 text-xs text-gray-500">選擇目的地</p>
-            <div className="grid grid-cols-3 gap-2">
-              {DESTINATIONS.map((d) => (
-                <button
-                  key={d}
-                  onClick={() => handleDestinationSelect(d)}
-                  className="rounded-xl border border-gray-200 px-3 py-3 text-center text-sm font-medium text-gray-700 active:bg-korea-blue/5 active:border-korea-blue/30"
-                >
-                  {d}
-                </button>
-              ))}
-            </div>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">目的地 (城市或國家)</label>
+            <input
+              type="text"
+              value={destination}
+              onChange={(e) => setDestination(e.target.value)}
+              placeholder="例如：東京、巴黎、台北..."
+              list="city-list"
+              className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary-blue outline-none text-sm"
+            />
+            <datalist id="city-list">
+              {CITIES.map((c) => <option key={c} value={c} />)}
+            </datalist>
           </div>
-        ) : (
-          <div className="space-y-3.5 px-5 py-4">
-            <div>
-              <p className="mb-1 text-xs text-gray-400">目的地</p>
-              <div className="flex items-center gap-2">
-                <span className="rounded-lg bg-korea-blue/10 px-2.5 py-1 text-sm font-medium text-korea-blue">{destination}</span>
-                <button onClick={() => setStep("destination")} className="text-xs text-gray-400 underline">更換</button>
-              </div>
-            </div>
 
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="mb-1 block text-xs text-gray-400">出發日期</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">出發日期</label>
               <input
                 type="date"
                 value={startDate}
-                min={minDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-korea-blue focus:outline-none"
+                className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary-blue outline-none text-sm"
               />
             </div>
-
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <label className="mb-1 block text-xs text-gray-400">天數</label>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setTotalDays(Math.max(1, totalDays - 1))}
-                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500"
-                  >−</button>
-                  <span className="min-w-[2ch] text-center text-lg font-bold text-korea-blue">{totalDays}</span>
-                  <button
-                    onClick={() => setTotalDays(Math.min(14, totalDays + 1))}
-                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500"
-                  >+</button>
-                </div>
-              </div>
-              <div className="flex-1">
-                <label className="mb-1 block text-xs text-gray-400">步調</label>
-                <select
-                  value={pace}
-                  onChange={(e) => setPace(e.target.value as TripFormData["pace"])}
-                  className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-korea-blue focus:outline-none"
-                >
-                  {PACE_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <label className="mb-1 block text-xs text-gray-400">每日開始</label>
-                <input
-                  type="time"
-                  value={dailyStartTime}
-                  onChange={(e) => setDailyStartTime(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-korea-blue focus:outline-none"
-                />
-              </div>
-              <div className="flex-1">
-                <label className="mb-1 block text-xs text-gray-400">每日結束</label>
-                <input
-                  type="time"
-                  value={dailyEndTime}
-                  onChange={(e) => setDailyEndTime(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-korea-blue focus:outline-none"
-                />
-              </div>
-            </div>
-
             <div>
-              <label className="mb-1 block text-xs text-gray-400">飯店 / 住宿名稱</label>
-              <input
-                type="text"
-                value={hotelName}
-                onChange={(e) => setHotelName(e.target.value)}
-                placeholder="例：明洞九樹高級飯店"
-                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm placeholder-gray-300 focus:border-korea-blue focus:outline-none"
-              />
+              <label className="block text-sm font-medium text-slate-700 mb-1">天數</label>
+              <div className="flex items-center gap-2">
+                {DAYS_OPTIONS.map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setTotalDays(n)}
+                    className={`w-10 h-10 rounded-lg text-sm font-bold transition ${
+                      totalDays === n
+                        ? "bg-primary-blue text-white"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
             </div>
-
-            <button
-              onClick={handleSubmit}
-              disabled={loading || !startDate || !hotelName}
-              className="mt-2 w-full rounded-xl bg-korea-blue py-3 text-sm font-bold text-white disabled:opacity-40"
-            >
-              {loading ? "🤖 AI 排程中..." : "✨ 開始規劃"}
-            </button>
           </div>
-        )}
+        </div>
+
+        <button
+          onClick={handleSubmit}
+          disabled={loading || !destination || !startDate}
+          className="w-full bg-primary-blue hover:bg-blue-700 text-white font-bold py-3 rounded-xl mt-8 transition shadow-md disabled:opacity-40"
+        >
+          {loading ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="spinner" />
+              AI 規劃中...
+            </span>
+          ) : (
+            "開始規劃畫布"
+          )}
+        </button>
       </div>
     </div>
   );

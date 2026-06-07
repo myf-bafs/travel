@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌎 全球 AI 智慧旅遊管家</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- 引入 SortableJS 實現流暢的拖拉功能 -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary-blue': '#0052cc',
+                        'bg-gray': '#f4f6f8'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 10px; }
+        
+        /* 時間軸線條 */
+        .timeline-line::before {
+            content: ''; position: absolute; left: 20px; top: 24px; bottom: -24px;
+            width: 2px; background-color: #e2e8f0; z-index: 0;
+        }
+        .last-item .timeline-line::before { display: none; }
+        
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3); border-radius: 50%;
+            border-top: 3px solid white; width: 16px; height: 16px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .modal-enter { animation: fadeIn 0.2s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+        /* 拖拉功能專屬樣式 */
+        .sortable-ghost { opacity: 0.4; background-color: #eef2ff; border-radius: 12px; }
+        .drag-handle { cursor: grab; }
+        .drag-handle:active { cursor: grabbing; }
+    </style>
+</head>
+<body class="bg-bg-gray font-sans h-screen flex flex-col overflow-hidden text-slate-800">
+
+    <nav class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-20 shrink-0 relative">
+        <!-- 動態標題 -->
+        <div class="flex items-center gap-3 cursor-pointer hover:bg-slate-50 p-2 rounded-lg transition" onclick="openCreateTripModal()">
+            <span class="text-2xl" id="navEmoji">🌍</span>
+            <h1 class="text-lg font-bold tracking-wide text-slate-900 hidden sm:block">AgnesTravel <span class="text-sm font-medium text-slate-500 ml-2" id="navDestination">建立新旅程...</span></h1>
+            <i class="ph ph-caret-down text-slate-400"></i>
+        </div>
+        
+        <div class="flex items-center gap-2 bg-slate-100 rounded-lg px-3 py-1.5 border border-slate-200 cursor-pointer hover:bg-slate-200 transition" onclick="openCreateTripModal()">
+            <i class="ph ph-calendar-blank text-slate-500"></i>
+            <span class="text-sm font-medium text-slate-700" id="navDate">請選擇日期</span>
+        </div>
+        
+        <div class="flex items-center gap-3">
+            <button onclick="openSpotModal()" class="flex items-center gap-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-full text-sm font-medium transition-all shadow-sm">
+                <i class="ph ph-magnifying-glass text-lg"></i>
+                <span class="hidden sm:inline">探索景點</span>
+            </button>
+            <button onclick="generateAIItinerary()" id="generateBtn" class="flex items-center gap-2 bg-primary-blue hover:bg-blue-700 text-white px-5 py-2 rounded-full text-sm font-semibold transition-all shadow-md active:scale-95">
+                <i class="ph ph-magic-wand text-lg"></i>
+                <span id="btnText">Agnes AI 智慧編排</span>
+            </button>
+        </div>
+    </nav>
+
+    <main class="flex-1 flex overflow-hidden relative">
+        
+        <!-- 左側：多日行程與拖拉時間軸 -->
+        <section class="w-full md:w-5/12 lg:w-1/3 bg-white flex flex-col border-r border-slate-200 z-10">
+            <div class="bg-slate-50 border-b border-slate-200 px-2 pt-2 flex overflow-x-auto hide-scroll shrink-0" id="dayTabs">
+                <!-- Tabs rendered by JS -->
+            </div>
+
+            <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-800" id="currentDayTitle">📍 我的行程畫布</h2>
+                    <p class="text-xs text-slate-500 mt-1">💡 提示：按住卡片左側的「⋮⋮」即可拖拉排序</p>
+                </div>
+            </div>
+
+            <!-- 時間軸列表 (可拖拉區域) -->
+            <div id="timelineContainer" class="flex-1 overflow-y-auto p-5 relative bg-slate-50/30 pb-20">
+                <!-- Content will be injected here -->
+            </div>
+        </section>
+
+        <!-- 右側：地圖與 AI 建議面板 -->
+        <section class="hidden md:block md:w-7/12 lg:w-2/3 relative bg-slate-200 z-0 h-full">
+            <div id="map" class="w-full h-full"></div>
+            
+            <div id="aiSuggestionPanel" class="absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur-md border border-blue-100 rounded-2xl shadow-2xl p-4 w-[380px] hidden transition-all duration-300 z-[1000]">
+                <div class="flex items-start gap-3">
+                    <div class="bg-blue-100 text-primary-blue p-2 rounded-full shrink-0">
+                        <i class="ph-fill ph-sparkle text-xl"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h4 class="text-sm font-bold text-slate-800 flex justify-between items-center">
+                            Agnes AI 行程建議
+                            <button onclick="closeAISuggestion()" class="text-slate-400 hover:text-slate-600"><i class="ph ph-x"></i></button>
+                        </h4>
+                        <p class="text-xs text-slate-600 mt-1 mb-3" id="aiSuggestionText">建議內容...</p>
+                        <div class="flex gap-2">
+                            <button onclick="importAISuggestion()" class="flex-1 bg-primary-blue hover:bg-blue-700 text-white py-1.5 rounded-lg text-sm font-medium transition flex items-center justify-center gap-1">
+                                <i class="ph ph-download-simple"></i> 導入至今日行程
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 建立新旅程 Modal -->
+    <div id="createTripModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[3000] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden modal-enter p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <i class="ph-fill ph-airplane-tilt text-primary-blue"></i> 建立新旅程
+                </h3>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">目的地 (城市或國家)</label>
+                    <input type="text" id="inputDestination" placeholder="例如：東京、巴黎、台北..." class="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-blue outline-none" value="東京">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">出發日期</label>
+                        <input type="date" id="inputStartDate" class="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-blue outline-none" value="2026-12-01">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">天數</label>
+                        <select id="inputDays" class="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-blue outline-none">
+                            <option value="1">1 天</option>
+                            <option value="2">2 天</option>
+                            <option value="3" selected>3 天</option>
+                            <option value="4">4 天</option>
+                            <option value="5">5 天</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <button onclick="submitNewTrip()" class="w-full bg-primary-blue hover:bg-blue-700 text-white font-bold py-3 rounded-xl mt-8 transition shadow-md">
+                開始規劃畫布
+            </button>
+        </div>
+    </div>
+
+    <!-- 景點搜尋 Modal -->
+    <div id="spotModal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[2000] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[80vh] modal-enter">
+            <div class="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <i class="ph-fill ph-map-pin text-primary-blue"></i> 探索景點
+                </h3>
+                <button onclick="closeSpotModal()" class="p-1 text-slate-400 hover:bg-slate-200 rounded-md transition"><i class="ph ph-x text-xl"></i></button>
+            </div>
+            <div class="p-3 border-b border-slate-100">
+                <div class="relative">
+                    <i class="ph ph-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" id="spotSearch" onkeyup="filterSpots()" placeholder="搜尋景點 (如：晴空塔、羅浮宮)..." class="w-full bg-slate-100 border-none rounded-lg pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-primary-blue outline-none">
+                </div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-5 grid grid-cols-1 sm:grid-cols-2 gap-4" id="spotGrid">
+                <!-- Spots rendered by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-20 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg transition-all duration-300 opacity-0 pointer-events-none z-[4000] translate-y-[-20px]">
+        通知訊息
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // System State
+        let map;
+        let markers = [];
+        let routeLine;
+        let sortableInstance = null; // 用於拖拉功能的實例
+        
+        let tripMeta = { destination: "未設定", startDate: "2026-01-01", days: 3 };
+        let tripData = {}; 
+        let currentDay = 1;
+        let aiProposedSpot = null;
+
+        // 全球通用的 Mock Database (示範不同城市的景點)
+        const globalSpots = [
+            // 東京
+            { id: "t1", city: "東京", name: "淺草寺", desc: "東京最古老寺廟，雷門打卡必備", lat: 35.7147, lng: 139.7966, icon: "ph-buildings", time: "10:00", stay: "90分" },
+            { id: "t2", city: "東京", name: "東京晴空塔", desc: "俯瞰東京全景的絕佳地標", lat: 35.7100, lng: 139.8107, icon: "ph-star", time: "14:00", stay: "120分" },
+            { id: "t3", city: "東京", name: "秋葉原", desc: "動漫與電器愛好者的天堂", lat: 35.6983, lng: 139.7731, icon: "ph-game-controller", time: "16:00", stay: "180分" },
+            // 首爾
+            { id: "s1", city: "首爾", name: "景福宮", desc: "韓國最具代表性的王宮", lat: 37.5796, lng: 126.9770, icon: "ph-castle", time: "10:00", stay: "120分" },
+            { id: "s2", city: "首爾", name: "明洞", desc: "首爾最繁華的購物商圈", lat: 37.5636, lng: 126.9832, icon: "ph-shopping-bag", time: "15:00", stay: "180分" },
+            // 台北
+            { id: "tp1", city: "台北", name: "台北 101", desc: "台灣地標，可登觀景台", lat: 25.0339, lng: 121.5644, icon: "ph-buildings", time: "11:00", stay: "90分" },
+            { id: "tp2", city: "台北", name: "士林夜市", desc: "台灣最著名的美食夜市", lat: 25.0879, lng: 121.5241, icon: "ph-hamburger", time: "19:00", stay: "120分" },
+        ];
+
+        function initMap() {
+            if(map) return; // already initialized
+            map = L.map('map', { zoomControl: false }).setView([20, 0], 2); // default global view
+            L.control.zoom({ position: 'topright' }).addTo(map);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; CARTO'
+            }).addTo(map);
+        }
+
+        // 開啟與提交「建立旅程」
+        function openCreateTripModal() {
+            document.getElementById('createTripModal').classList.remove('hidden');
+        }
+
+        function submitNewTrip() {
+            tripMeta.destination = document.getElementById('inputDestination').value || "未命名地點";
+            tripMeta.startDate = document.getElementById('inputStartDate').value;
+            tripMeta.days = parseInt(document.getElementById('inputDays').value);
+
+            // 更新導覽列 UI
+            document.getElementById('navDestination').innerText = tripMeta.destination;
+            document.getElementById('navDate').innerText = `${tripMeta.startDate} (${tripMeta.days}天)`;
+            document.getElementById('navEmoji').innerText = "📍";
+
+            // 初始化空白的資料結構
+            tripData = {};
+            let baseDate = new Date(tripMeta.startDate);
+            for(let i=1; i<=tripMeta.days; i++) {
+                let d = new Date(baseDate);
+                d.setDate(d.getDate() + i - 1);
+                tripData[i] = {
+                    date: d.toISOString().split('T')[0],
+                    title: `自由探索日`,
+                    spots: [] // 空白行程
+                };
+            }
+
+            document.getElementById('createTripModal').classList.add('hidden');
+            currentDay = 1;
+            initMap();
+            renderDayTabs();
+            renderTimeline();
+            showToast(`✅ 已為您建立「${tripMeta.destination}」的專屬畫布`);
+            
+            // 如果是示範城市，幫他加個起點體驗一下
+            prefillDemoData(); 
+        }
+
+        function prefillDemoData() {
+            if(tripMeta.destination.includes("東京")) {
+                manualAddSpot("t1"); setTimeout(() => manualAddSpot("t2"), 500);
+            } else if (tripMeta.destination.includes("台北")) {
+                manualAddSpot("tp1");
+            }
+        }
+
+        function renderDayTabs() {
+            const tabsContainer = document.getElementById('dayTabs');
+            tabsContainer.innerHTML = '';
+            
+            for(let day=1; day<=tripMeta.days; day++) {
+                const isSelected = day === currentDay;
+                const dateStr = tripData[day].date.substring(5); // MM-DD
+                
+                const btn = document.createElement('button');
+                btn.className = `px-4 py-2.5 text-sm font-bold border-b-2 whitespace-nowrap transition-colors ${isSelected ? 'border-primary-blue text-primary-blue bg-white rounded-t-lg' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-t-lg'}`;
+                btn.innerHTML = `Day ${day} <span class="text-xs font-normal ml-1 text-slate-400">${dateStr}</span>`;
+                btn.onclick = () => switchDay(day);
+                tabsContainer.appendChild(btn);
+            }
+        }
+
+        function switchDay(day) {
+            currentDay = day;
+            renderDayTabs();
+            renderTimeline();
+            closeAISuggestion();
+        }
+
+        function renderTimeline() {
+            const container = document.getElementById('timelineContainer');
+            const dayData = tripData[currentDay];
+            
+            document.getElementById('currentDayTitle').innerText = `📍 Day ${currentDay} - ${dayData.date}`;
+            container.innerHTML = ''; 
+            
+            if (dayData.spots.length === 0) {
+                container.innerHTML = `
+                    <div class="h-full flex flex-col items-center justify-center text-slate-400 text-center space-y-4 pt-10">
+                        <i class="ph-fill ph-map-trifold text-6xl text-slate-200"></i>
+                        <p class="text-sm">畫布還是空的！<br>點擊上方「探索景點」或讓 AI 幫您編排</p>
+                    </div>`;
+                renderMap([]);
+                // Destroy sortable if empty
+                if(sortableInstance) { sortableInstance.destroy(); sortableInstance = null; }
+                return;
+            }
+            
+            // Render Spot Cards
+            let html = '';
+            dayData.spots.forEach((item, index) => {
+                const isLast = index === dayData.spots.length - 1;
+                const isStart = index === 0;
+                
+                // 注意此處加入了 .drag-handle 樣式
+                html += `
+                <div class="relative pl-12 pb-6 timeline-line spot-item ${isLast ? 'last-item' : ''}" data-id="${item.id}">
+                    <div class="absolute left-[13px] top-1 w-4 h-4 rounded-full border-4 border-white ${isStart ? 'bg-slate-800' : 'bg-primary-blue'} shadow-sm z-10"></div>
+                    
+                    <div class="text-xs font-bold text-slate-500 mb-1">${item.time || '10:00'}</div>
+                    
+                    <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm hover:shadow-md transition-all relative group flex items-start gap-3">
+                        
+                        <!-- 拖拉把手 -->
+                        <div class="drag-handle text-slate-300 hover:text-slate-500 pt-1 shrink-0 px-1 -ml-1">
+                            <i class="ph-bold ph-dots-six-vertical text-lg"></i>
+                        </div>
+
+                        <div class="flex-1">
+                            <h3 class="font-bold text-slate-800 text-base mb-1">${item.name}</h3>
+                            <p class="text-xs text-slate-500">${item.desc || '自訂景點'}</p>
+                            <button onclick="removeSpot(${index})" class="absolute top-3 right-3 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><i class="ph-bold ph-trash"></i></button>
+                        </div>
+                    </div>
+                </div>`;
+            });
+            
+            container.innerHTML = html;
+            renderMap(dayData.spots);
+
+            // 初始化或更新 Sortable (拖拉核心邏輯)
+            initSortable();
+        }
+
+        function initSortable() {
+            const container = document.getElementById('timelineContainer');
+            if(sortableInstance) sortableInstance.destroy(); // 避免重複綁定
+            
+            sortableInstance = new Sortable(container, {
+                animation: 150,
+                handle: '.drag-handle', // 限定點擊此處才能拖拉
+                ghostClass: 'sortable-ghost',
+                onEnd: function (evt) {
+                    // 更新底層資料陣列順序
+                    const spots = tripData[currentDay].spots;
+                    const movedItem = spots.splice(evt.oldIndex, 1)[0];
+                    spots.splice(evt.newIndex, 0, movedItem);
+                    
+                    // 重新計算路線、重繪畫面 (模擬 AI 重算時間)
+                    showToast("🔄 順序已更新，正在重新計算路線...");
+                    renderTimeline(); // Re-render DOM and Map
+                }
+            });
+        }
+
+        function renderMap(spots) {
+            markers.forEach(m => map.removeLayer(m));
+            if (routeLine) map.removeLayer(routeLine);
+            markers = [];
+            
+            if(spots.length === 0) return;
+
+            const coordinates = [];
+            const createIcon = (color) => L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div style="background-color: ${color}; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;"><div style="width:6px; height:6px; background:white; border-radius:50%;"></div></div>`,
+                iconSize: [24, 24], iconAnchor: [12, 12]
+            });
+
+            spots.forEach((item, index) => {
+                if(item.lat && item.lng) {
+                    const latlng = [item.lat, item.lng];
+                    coordinates.push(latlng);
+                    const marker = L.marker(latlng, {icon: createIcon(index===0 ? '#1e293b' : '#0052cc')}).addTo(map)
+                        .bindPopup(`<b>${index+1}. ${item.name}</b>`);
+                    markers.push(marker);
+                }
+            });
+
+            if (coordinates.length > 1) {
+                routeLine = L.polyline(coordinates, { color: '#0052cc', weight: 4, opacity: 0.8, dashArray: '8, 8' }).addTo(map);
+                map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
+            } else if (coordinates.length === 1) {
+                map.setView(coordinates[0], 14);
+            }
+        }
+
+        function openSpotModal() {
+            document.getElementById('spotModal').classList.remove('hidden');
+            renderSpots(globalSpots);
+        }
+
+        function closeSpotModal() {
+            document.getElementById('spotModal').classList.add('hidden');
+            document.getElementById('spotSearch').value = '';
+        }
+
+        function filterSpots() {
+            const q = document.getElementById('spotSearch').value.toLowerCase();
+            const filtered = globalSpots.filter(s => s.name.toLowerCase().includes(q) || s.city.includes(q));
+            renderSpots(filtered);
+        }
+
+        function renderSpots(list) {
+            const grid = document.getElementById('spotGrid');
+            grid.innerHTML = list.map(s => `
+                <div class="border border-slate-200 rounded-xl p-4 hover:border-blue-300 hover:shadow-md transition cursor-pointer bg-white flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-start mb-1">
+                            <h4 class="font-bold text-slate-800 flex items-center gap-1"><i class="ph-fill ${s.icon} text-primary-blue"></i> ${s.name}</h4>
+                            <span class="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded">${s.city}</span>
+                        </div>
+                        <p class="text-xs text-slate-500 line-clamp-2">${s.desc}</p>
+                    </div>
+                    <button onclick="manualAddSpot('${s.id}')" class="mt-3 w-full bg-slate-50 hover:bg-blue-50 text-primary-blue border border-slate-200 hover:border-blue-200 py-1.5 rounded-lg text-sm font-semibold transition">
+                        加入 Day ${currentDay}
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function manualAddSpot(spotId) {
+            const spotDef = globalSpots.find(s => s.id === spotId);
+            tripData[currentDay].spots.push({
+                id: spotDef.id + Date.now(), // Ensure unique ID for drag/drop
+                time: "10:00", name: spotDef.name, desc: spotDef.desc,
+                lat: spotDef.lat, lng: spotDef.lng
+            });
+            
+            closeSpotModal();
+            renderTimeline();
+            showToast(`✅ 已加入「${spotDef.name}」`);
+            
+            // 模擬 AI 建議
+            if(tripData[currentDay].spots.length === 1 && spotDef.city === "東京") {
+                setTimeout(() => showAISuggestion("t3", "秋葉原", "距離晴空塔不遠，推薦去逛逛！"), 1500);
+            }
+        }
+
+        function removeSpot(index) {
+            tripData[currentDay].spots.splice(index, 1);
+            renderTimeline();
+        }
+
+        function showAISuggestion(spotId, name, text) {
+            aiProposedSpot = globalSpots.find(s => s.id === spotId) || globalSpots[2];
+            document.getElementById('aiSuggestionText').innerText = text;
+            const panel = document.getElementById('aiSuggestionPanel');
+            panel.classList.remove('hidden');
+            setTimeout(() => { panel.style.transform = 'translate(-50%, -10px)'; }, 50);
+        }
+
+        function closeAISuggestion() {
+            const panel = document.getElementById('aiSuggestionPanel');
+            panel.style.transform = 'translate(-50%, 20px)';
+            setTimeout(() => { panel.classList.add('hidden'); }, 300);
+        }
+
+        function importAISuggestion() {
+            if(!aiProposedSpot) return;
+            manualAddSpot(aiProposedSpot.id);
+            closeAISuggestion();
+        }
+
+        function generateAIItinerary() {
+            const btn = document.getElementById('generateBtn');
+            const btnText = document.getElementById('btnText');
+            
+            // 避免空地點或天數異常
+            if(!tripMeta.destination || tripMeta.days < 1) {
+                showToast("請先建立有效的旅程！");
+                return;
+            }
+
+            btn.disabled = true;
+            btnText.innerHTML = '<div class="spinner"></div> <span>AI 全盤規劃中...</span>';
+            showToast(`🤖 Agnes AI 正在為您生成「${tripMeta.destination}」${tripMeta.days}天的專屬行程...`);
+            
+            // 模擬呼叫 AI API 的延遲 (2秒)
+            setTimeout(() => {
+                // 獲取 AI 生成的多日行程資料
+                const aiGeneratedTrip = mockAIFetchItinerary(tripMeta.destination, tripMeta.days);
+                
+                // 將 AI 生成的資料覆蓋到現有的畫布中
+                for(let i = 1; i <= tripMeta.days; i++) {
+                    if(aiGeneratedTrip[i]) {
+                        tripData[i].spots = aiGeneratedTrip[i];
+                    }
+                }
+
+                btn.disabled = false;
+                btnText.innerHTML = '<i class="ph ph-magic-wand text-lg"></i><span class="hidden sm:inline">Agnes AI 智慧編排</span>';
+                
+                // 強制切換回 Day 1 並重繪畫面
+                switchDay(1);
+                showToast(`✅ 規劃完成！已成功為您導入 ${tripMeta.days} 天的完美行程`);
+                
+            }, 2000);
+        }
+
+        // 模擬 Agnes AI 根據不同城市生成不同多日行程的核心引擎
+        function mockAIFetchItinerary(dest, days) {
+            const result = {};
+            
+            // 內建全球知名城市的經緯度基準點，讓地圖能真實連線
+            const cities = {
+                "東京": [35.6895, 139.6917], "首爾": [37.5665, 126.9780], "台北": [25.0330, 121.5654],
+                "巴黎": [48.8566, 2.3522], "倫敦": [51.5074, -0.1278], "曼谷": [13.7563, 100.5018],
+                "大阪": [34.6937, 135.5023], "京都": [35.0116, 135.7681], "紐約": [40.7128, -74.0060]
+            };
+
+            // 預設經緯度 (若輸入冷門城市則使用此基準點)
+            let baseCoord = [25.0330, 121.5654]; 
+            for(let key in cities) {
+                if(dest.includes(key)) { baseCoord = cities[key]; break; }
+            }
+
+            // 每天設定不同的旅遊主題，讓行程看起來像真人排的
+            const dailyThemes = [
+                [{name: "經典地標探索", time: "10:00"}, {name: "在地美食巡禮", time: "13:30"}, {name: "繁華夜景與商圈", time: "18:00"}],
+                [{name: "文化歷史走讀", time: "09:30"}, {name: "文青咖啡廳下午茶", time: "14:30"}, {name: "知名購物商街", time: "19:00"}],
+                [{name: "自然風光秘境", time: "10:00"}, {name: "特色藝術美術館", time: "14:00"}, {name: "人氣小吃與夜市", time: "18:30"}],
+                [{name: "近郊一日漫遊", time: "09:00"}, {name: "傳統市集體驗", time: "15:00"}, {name: "米其林星級饗宴", time: "19:30"}],
+                [{name: "主題遊樂園", time: "10:00"}, {name: "免稅店血拼", time: "16:00"}, {name: "高空秘境酒吧", time: "20:00"}]
+            ];
+
+            for (let d = 1; d <= days; d++) {
+                result[d] = [];
+                // 依序輪替主題
+                const theme = dailyThemes[(d - 1) % dailyThemes.length];
+
+                for (let i = 0; i < 3; i++) {
+                    // 對經緯度進行隨機微調，讓地圖上的標記散開並形成移動路線
+                    const latOffset = (Math.random() - 0.5) * 0.08;
+                    const lngOffset = (Math.random() - 0.5) * 0.08;
+
+                    result[d].push({
+                        id: `ai_${d}_${i}_${Date.now()}`,
+                        time: theme[i].time,
+                        name: `${dest}${theme[i].name}`,
+                        desc: `✨ 由 Agnes AI 獨家推薦，為您優化交通順路的最棒${theme[i].name}體驗。`,
+                        lat: baseCoord[0] + latOffset,
+                        lng: baseCoord[1] + lngOffset
+                    });
+                }
+            }
+            return result;
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.style.opacity = '1';
+            toast.style.transform = 'translate(-50%, 0)';
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translate(-50%, -20px)';
+            }, 3000);
+        }
+
+        // 系統啟動入口
+        window.onload = function() {
+            // 一進入網頁就強制要求建立旅程
+            openCreateTripModal();
+        };
+    </script>
+</body>
+</html>

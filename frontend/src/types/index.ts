@@ -57,10 +57,65 @@ export interface SuggestItem {
   reason: string;
 }
 
-export interface SuggestResponse {
-  success: boolean;
-  data?: { suggestions: SuggestItem[] };
-  error?: string;
+export interface GlobalSpot {
+  id: string;
+  city: string;
+  name: string;
+  desc: string;
+  lat: number;
+  lng: number;
+}
+
+export const GLOBAL_SPOTS: GlobalSpot[] = [
+  // 東京
+  { id: "tk1", city: "東京", name: "淺草寺", desc: "東京最古老寺廟，雷門打卡必備", lat: 35.7147, lng: 139.7966 },
+  { id: "tk2", city: "東京", name: "東京晴空塔", desc: "俯瞰東京全景的絕佳地標", lat: 35.7100, lng: 139.8107 },
+  { id: "tk3", city: "東京", name: "秋葉原", desc: "動漫與電器愛好者的天堂", lat: 35.6983, lng: 139.7731 },
+  { id: "tk4", city: "東京", name: "澀谷", desc: "年輕文化與潮流發源地", lat: 35.6595, lng: 139.7004 },
+  { id: "tk5", city: "東京", name: "新宿", desc: "繁華商業區與夜生活", lat: 35.6896, lng: 139.7006 },
+  { id: "tk6", city: "東京", name: "東京塔", desc: "東京經典地標夜景", lat: 35.6586, lng: 139.7454 },
+  { id: "tk7", city: "東京", name: "明治神宮", desc: "都市中的寧靜神社", lat: 35.6764, lng: 139.6993 },
+  { id: "tk8", city: "東京", name: "銀座", desc: "高級購物與美食天堂", lat: 35.6717, lng: 139.7650 },
+  // 首爾
+  { id: "sl1", city: "首爾", name: "景福宮", desc: "韓國最具代表性的王宮", lat: 37.5796, lng: 126.9770 },
+  { id: "sl2", city: "首爾", name: "北村韓屋村", desc: "傳統韓屋體驗", lat: 37.5826, lng: 126.9860 },
+  { id: "sl3", city: "首爾", name: "N首爾塔", desc: "首爾地標夜景", lat: 37.5512, lng: 126.9882 },
+  { id: "sl4", city: "首爾", name: "明洞", desc: "首爾最繁華購物商圈", lat: 37.5609, lng: 126.9860 },
+  { id: "sl5", city: "首爾", name: "弘大商圈", desc: "年輕人文化與街頭表演", lat: 37.5563, lng: 126.9236 },
+  { id: "sl6", city: "首爾", name: "廣藏市場", desc: "傳統韓國美食市場", lat: 37.5700, lng: 126.9993 },
+  { id: "sl7", city: "首爾", name: "COEX 星空圖書館", desc: "絕美室內圖書館", lat: 37.5112, lng: 127.0590 },
+  // 台北
+  { id: "tp1", city: "台北", name: "台北 101", desc: "台灣地標，可登觀景台", lat: 25.0339, lng: 121.5644 },
+  { id: "tp2", city: "台北", name: "九份", desc: "山城老街與夜景", lat: 25.1100, lng: 121.8446 },
+  { id: "tp3", city: "台北", name: "西門町", desc: "年輕潮流商圈", lat: 25.0420, lng: 121.5080 },
+  { id: "tp4", city: "台北", name: "故宮博物院", desc: "中華文物寶庫", lat: 25.1022, lng: 121.5485 },
+  { id: "tp5", city: "台北", name: "士林夜市", desc: "台灣最著名美食夜市", lat: 25.0879, lng: 121.5241 },
+  // 巴黎
+  { id: "pr1", city: "巴黎", name: "艾菲爾鐵塔", desc: "巴黎經典地標", lat: 48.8584, lng: 2.2945 },
+  { id: "pr2", city: "巴黎", name: "羅浮宮", desc: "世界最大博物館", lat: 48.8606, lng: 2.3376 },
+  { id: "pr3", city: "巴黎", name: "凱旋門", desc: "香榭麗舍大道地標", lat: 48.8738, lng: 2.2950 },
+  { id: "pr4", city: "巴黎", name: "聖母院", desc: "哥德式建築經典", lat: 48.8530, lng: 2.3499 },
+  // 曼谷
+  { id: "bk1", city: "曼谷", name: "大皇宮", desc: "泰國最神聖皇宮", lat: 13.7500, lng: 100.4914 },
+  { id: "bk2", city: "曼谷", name: "臥佛寺", desc: "泰國最大臥佛", lat: 13.7467, lng: 100.4929 },
+  { id: "bk3", city: "曼谷", name: "洽圖洽市集", desc: "世界最大週末市集", lat: 13.7999, lng: 100.5503 },
+  // 大阪
+  { id: "os1", city: "大阪", name: "大阪城", desc: "日本歷史名城", lat: 34.6873, lng: 135.5262 },
+  { id: "os2", city: "大阪", name: "道頓堀", desc: "大阪美食娛樂區", lat: 34.6688, lng: 135.5012 },
+  { id: "os3", city: "大阪", name: "環球影城", desc: "主題樂園", lat: 34.6654, lng: 135.4323 },
+  // 京都
+  { id: "ky1", city: "京都", name: "清水寺", desc: "京都最古老寺廟", lat: 34.9949, lng: 135.7850 },
+  { id: "ky2", city: "京都", name: "伏見稻荷大社", desc: "千本鳥居聞名", lat: 34.9671, lng: 135.7727 },
+  { id: "ky3", city: "京都", name: "金閣寺", desc: "金碧輝煌禪寺", lat: 35.0394, lng: 135.7292 },
+  { id: "ky4", city: "京都", name: "嵐山", desc: "竹林與自然景觀", lat: 35.0094, lng: 135.6727 },
+];
+
+export function getSpotsByCity(city: string): GlobalSpot[] {
+  return GLOBAL_SPOTS.filter((s) => city.includes(s.city) || s.city.includes(city));
+}
+
+export function getSpotById(id: string): GlobalSpot | undefined {
+  return GLOBAL_SPOTS.find((s) => s.id === id);
 }
 
 export const PACE_OPTIONS: { value: TripFormData["pace"]; label: string; desc: string }[] = [
@@ -69,18 +124,6 @@ export const PACE_OPTIONS: { value: TripFormData["pace"]; label: string; desc: s
   { value: "悠閒", label: "悠閒", desc: "慢活體驗，深度探索" },
 ];
 
-export const POPULAR_SPOTS: Record<string, string[]> = {
-  "首爾": ["景福宮", "北村韓屋村", "N首爾塔", "廣藏市場", "弘大商圈", "明洞商圈", "江南 COEX 星空圖書館", "梨泰院", "仁寺洞"],
-  "釜山": ["釜山海雲台", "甘川文化村", "海雲台膠囊列車", "釜山札嘎其市場"],
-  "濟州島": ["濟州島城山日出峰", "牛島"],
-  "東京": ["淺草寺", "澀谷", "新宿", "秋葉原", "東京塔", "銀座", "原宿", "上野公園"],
-  "大阪": ["大阪城", "道頓堀", "環球影城", "心齋橋", "通天閣"],
-  "京都": ["清水寺", "伏見稻荷大社", "金閣寺", "嵐山", "祇園"],
-  "巴黎": ["艾菲爾鐵塔", "羅浮宮", "凱旋門", "聖母院", "蒙馬特"],
-  "台北": ["台北101", "九份", "故宮博物院", "西門町", "士林夜市"],
-  "曼谷": ["大皇宮", "臥佛寺", "Terminal 21", "恰圖恰市集", "水門市場"],
-};
-
 export function getPopularSpots(destination: string): string[] {
-  return POPULAR_SPOTS[destination] || [];
+  return GLOBAL_SPOTS.filter((s) => destination.includes(s.city) || s.city.includes(destination)).map((s) => s.name);
 }

@@ -2,20 +2,43 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  html {
-    scroll-behavior: smooth;
-  }
-  body {
-    @apply bg-korea-cream text-gray-800 antialiased;
-  }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 10px; }
+
+.hide-scroll::-webkit-scrollbar { display: none; }
+.hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+
+.sortable-ghost { opacity: 0.4; background-color: #eef2ff; border-radius: 12px; }
+.drag-handle { cursor: grab; }
+.drag-handle:active { cursor: grabbing; }
+
+.modal-enter {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
 }
 
-@layer components {
-  .timeline-dot {
-    @apply absolute left-0 top-2 z-10 h-4 w-4 rounded-full border-4 border-white shadow-md;
-  }
-  .timeline-line {
-    @apply absolute left-2 top-6 h-full w-0.5 -translate-x-1/2;
-  }
+.timeline-line::before {
+  content: '';
+  position: absolute;
+  left: 20px;
+  top: 24px;
+  bottom: -24px;
+  width: 2px;
+  background-color: #e2e8f0;
+  z-index: 0;
 }
+.last-item .timeline-line::before { display: none; }
+
+.spinner {
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top: 3px solid white;
+  width: 16px;
+  height: 16px;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }

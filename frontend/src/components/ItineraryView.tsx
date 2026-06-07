@@ -1,28 +1,19 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import Sortable from "sortablejs";
-import { TripPlan, ScheduleItem, SuggestItem } from "../types";
+import { TripPlan, ScheduleItem, SuggestItem, GlobalSpot } from "../types";
 import { TripMap } from "./TripMap";
 import { AiSuggestion } from "./AiSuggestion";
 import { ExploreModal } from "./ExploreModal";
+import { DotsSixVertical, Trash, MapPin, MagicWand, MagnifyingGlass, CalendarBlank } from "@phosphor-icons/react";
 
 interface Props {
   plan: TripPlan;
   destination: string;
+  startDate: string;
   onPlanChange: (plan: TripPlan) => void;
+  onRegenerate: () => void;
+  regenerating: boolean;
 }
-
-const DAY_COLORS_BG = ["bg-blue-500", "bg-red-500", "bg-amber-500", "bg-green-500", "bg-purple-500", "bg-orange-500", "bg-cyan-500"];
-
-const costColor = (cost: number) => {
-  if (cost <= 0) return "text-gray-400";
-  if (cost < 5000) return "text-green-600";
-  if (cost < 15000) return "text-yellow-600";
-  return "text-red-600";
-};
-
-const modeIcon: Record<string, string> = {
-  Subway: "🚇", Bus: "🚌", Taxi: "🚕", Walk: "🚶", KTX: "🚄",
-};
 
 function deepClone<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj));
@@ -31,10 +22,11 @@ function deepClone<T>(obj: T): T {
 function getDayOfWeek(dateStr: string): string {
   const days = ["日", "一", "二", "三", "四", "五", "六"];
   const [y, m, d] = dateStr.split("-").map(Number);
+  if (y < 100) return "";
   return `週${days[new Date(y, m - 1, d).getDay()]}`;
 }
 
-export function ItineraryView({ plan, destination, onPlanChange }: Props) {
+export function ItineraryView({ plan, destination, startDate, onPlanChange, onRegenerate, regenerating }: Props) {
   const [activeDay, setActiveDay] = useState(0);
   const [editMode, setEditMode] = useState(false);
   const [showExplore, setShowExplore] = useState(false);
@@ -44,48 +36,19 @@ export function ItineraryView({ plan, destination, onPlanChange }: Props) {
   );
 
   const activeDayKey = dayKeys[activeDay];
-  const activeDayData = plan.itinerary[activeDayKey];
-
-  const handleAddSpot = (spot: string) => {
-    if (!activeDayKey) return;
-    const updated = deepClone(plan);
-    const day = updated.itinerary[activeDayKey];
-    day.schedule.push({
-      time_slots: "12:00 - 13:00",
-      spot_name: spot,
-      estimated_stay_mins: 90,
-      transit_to_next: { mode: "Walk", duration_mins: 0, estimated_cost_krw: 0 },
-    });
-    onPlanChange(updated);
-  };
-
-  const handleAiImport = (s: SuggestItem) => {
-    handleAddSpot(s.spot_name);
-  };
 
   const updateTransitCosts = useCallback((updatedPlan: TripPlan) => {
     for (const key of Object.keys(updatedPlan.itinerary)) {
       const day = updatedPlan.itinerary[key];
       let total = 0;
       for (const item of day.schedule) {
-        if (item.transit_to_next) {
-          total += item.transit_to_next.estimated_cost_krw || 0;
-        }
+        total += item.transit_to_next?.estimated_cost_krw || 0;
       }
       day.daily_transit_cost_krw = total;
     }
     updatedPlan.trip_summary.estimated_total_transit_cost_krw =
       Object.values(updatedPlan.itinerary).reduce((s, d) => s + d.daily_transit_cost_krw, 0);
   }, []);
-
-  const handleTimerUpdate = (dayKey: string, idx: number, field: "start" | "end", val: string) => {
-    const updated = deepClone(plan);
-    const item = updated.itinerary[dayKey].schedule[idx];
-    const parts = item.time_slots.split(" - ");
-    item.time_slots = field === "start" ? `${val} - ${parts[1] || ""}` : `${parts[0] || ""} - ${val}`;
-    updateTransitCosts(updated);
-    onPlanChange(updated);
-  };
 
   const handleDragEnd = (updatedSchedule: ScheduleItem[]) => {
     const updated = deepClone(plan);
@@ -94,103 +57,142 @@ export function ItineraryView({ plan, destination, onPlanChange }: Props) {
     onPlanChange(updated);
   };
 
-  const handleExploreAdd = (spot: string, dayKey: string) => {
+  const handleRemoveSpot = (idx: number) => {
+    const updated = deepClone(plan);
+    updated.itinerary[activeDayKey].schedule.splice(idx, 1);
+    updateTransitCosts(updated);
+    onPlanChange(updated);
+  };
+
+  const handleExploreAdd = (spot: GlobalSpot, dayKey: string) => {
     const updated = deepClone(plan);
     const day = updated.itinerary[dayKey];
     day.schedule.push({
       time_slots: "12:00 - 13:00",
-      spot_name: spot,
+      spot_name: spot.name,
+      lat: spot.lat,
+      lng: spot.lng,
       estimated_stay_mins: 90,
       transit_to_next: { mode: "Walk", duration_mins: 0, estimated_cost_krw: 0 },
     });
     updateTransitCosts(updated);
     onPlanChange(updated);
-    // switch to that day
     const idx = dayKeys.indexOf(dayKey);
     if (idx >= 0) setActiveDay(idx);
+    setShowExplore(false);
   };
 
-  if (!activeDayData) return null;
+  const handleAiImport = (s: SuggestItem) => {
+    const updated = deepClone(plan);
+    const day = updated.itinerary[activeDayKey];
+    day.schedule.push({
+      time_slots: "12:00 - 13:00",
+      spot_name: s.spot_name,
+      estimated_stay_mins: 90,
+      transit_to_next: { mode: "Walk", duration_mins: 0, estimated_cost_krw: 0 },
+    });
+    updateTransitCosts(updated);
+    onPlanChange(updated);
+  };
 
   const allSpots = dayKeys.flatMap((k) => plan.itinerary[k].schedule.map((s) => s.spot_name));
 
+  if (!activeDayKey) return null;
+
   return (
-    <div className="space-y-3 pb-4">
-      {/* Map */}
-      <TripMap plan={plan} activeDayKey={activeDayKey} />
-
-      {/* Summary card */}
-      <div className="rounded-2xl bg-gradient-to-br from-korea-blue to-blue-900 p-4 text-white shadow-lg">
-        <div className="flex items-center justify-between">
-          <div className="text-xs text-blue-200">
-            <span className="text-lg font-bold text-white">₩{plan.trip_summary.estimated_total_transit_cost_krw.toLocaleString()}</span>
-            <p>預估總交通費</p>
-          </div>
-          <div className="text-right text-xs text-blue-200">
-            <span className="text-lg font-bold text-white">{plan.trip_summary.total_days}</span>
-            <p>天旅程</p>
-          </div>
+    <div className="flex-1 flex overflow-hidden relative">
+      {/* Left: itinerary panel */}
+      <section className="w-full md:w-5/12 lg:w-2/5 bg-white flex flex-col border-r border-slate-200 z-10">
+        {/* Day tabs */}
+        <div className="bg-slate-50 border-b border-slate-200 px-2 pt-2 flex overflow-x-auto hide-scroll shrink-0" id="dayTabs">
+          {dayKeys.map((key, i) => {
+            const day = plan.itinerary[key];
+            const dateLabel = day.date.substring(5);
+            const isActive = i === activeDay;
+            return (
+              <button
+                key={key}
+                onClick={() => setActiveDay(i)}
+                className={`px-4 py-2.5 text-sm font-bold border-b-2 whitespace-nowrap transition-colors ${
+                  isActive
+                    ? "border-primary-blue text-primary-blue bg-white rounded-t-lg"
+                    : "border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-t-lg"
+                }`}
+              >
+                Day {i + 1} <span className="text-xs font-normal ml-1 text-slate-400">{dateLabel}</span>
+              </button>
+            );
+          })}
         </div>
-        <div className="mt-2 rounded-xl bg-white/10 p-2.5 text-xs leading-relaxed">
-          {plan.trip_summary.general_recommendations}
-        </div>
-      </div>
 
-      {/* Toolbar */}
-      <div className="flex items-center justify-between">
-        <button
-          onClick={() => setEditMode(!editMode)}
-          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-            editMode ? "bg-korea-blue text-white" : "bg-white text-gray-500 shadow-sm ring-1 ring-gray-200"
-          }`}
-        >
-          {editMode ? "✓ 完成編輯" : "✎ 編輯行程"}
-        </button>
-        <button
-          onClick={() => setShowExplore(true)}
-          className="flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-gray-500 shadow-sm ring-1 ring-gray-200"
-        >
-          🔍 探索景點
-        </button>
-      </div>
-
-      {/* Day tabs */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1">
-        {dayKeys.map((key, i) => (
+        {/* Toolbar */}
+        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
+          <div>
+            <h2 className="text-lg font-bold text-slate-800">
+              📍 {destination} · Day {activeDay + 1}
+            </h2>
+            <p className="text-xs text-slate-500 mt-1">💡 提示：按住 ⋮⋮ 即可拖拉排序</p>
+          </div>
           <button
-            key={key}
-            onClick={() => setActiveDay(i)}
-            className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition ${
-              activeDay === i
-                ? `${DAY_COLORS_BG[i % DAY_COLORS_BG.length]} text-white shadow`
-                : "bg-white text-gray-500 ring-1 ring-gray-200"
-            }`}
+            onClick={onRegenerate}
+            disabled={regenerating}
+            className="flex items-center gap-1.5 bg-primary-blue hover:bg-blue-700 text-white px-4 py-2 rounded-full text-sm font-semibold transition-all shadow-md active:scale-95 disabled:opacity-40"
           >
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-[10px]">
-              {i + 1}
-            </span>
-            {key.replace("day_", "Day ")} · {plan.itinerary[key].schedule.length} 景點
+            <MagicWand size={18} weight="fill" />
+            <span>{regenerating ? "AI 規劃中..." : "Agnes AI 智慧編排"}</span>
           </button>
-        ))}
+        </div>
+
+        {/* Explore button */}
+        <div className="px-4 py-2 border-b border-slate-100 flex gap-2">
+          <button
+            onClick={() => setShowExplore(true)}
+            className="flex items-center gap-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-full text-sm font-medium transition-all shadow-sm"
+          >
+            <MagnifyingGlass size={16} />
+            <span>探索景點</span>
+          </button>
+        </div>
+
+        {/* Timeline */}
+        <div id="timelineContainer" className="flex-1 overflow-y-auto p-5 relative bg-slate-50/30 pb-20">
+          <DayTimeline
+            dayKey={activeDayKey}
+            day={plan.itinerary[activeDayKey]}
+            editMode={editMode}
+            onDragEnd={handleDragEnd}
+            onRemove={handleRemoveSpot}
+          />
+        </div>
+      </section>
+
+      {/* Right: map */}
+      <section className="hidden md:flex md:w-7/12 lg:w-3/5 relative bg-slate-200 z-0 flex-col">
+        <div className="flex-1 relative">
+          <TripMap plan={plan} activeDayKey={activeDayKey} />
+
+          {/* AI suggestion overlay */}
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[380px] max-w-[90vw] z-[1000]">
+            <AiSuggestion
+              destination={destination}
+              dayKey={activeDayKey}
+              existingSpots={plan.itinerary[activeDayKey]?.schedule.map((s) => s.spot_name) || []}
+              onImport={handleAiImport}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Mobile: inline AI suggestion and map handled by TripMap */}
+      {/* Mobile AI suggestion */}
+      <div className="md:hidden fixed bottom-4 left-4 right-4 z-50">
+        <AiSuggestion
+          destination={destination}
+          dayKey={activeDayKey}
+          existingSpots={plan.itinerary[activeDayKey]?.schedule.map((s) => s.spot_name) || []}
+          onImport={handleAiImport}
+        />
       </div>
-
-      {/* Active day schedule */}
-      <DaySchedule
-        dayKey={activeDayKey}
-        day={activeDayData}
-        dayIdx={activeDay}
-        editMode={editMode}
-        onTimeUpdate={handleTimerUpdate}
-        onDragEnd={handleDragEnd}
-      />
-
-      {/* AI Suggestion */}
-      <AiSuggestion
-        destination={destination}
-        dayKey={activeDayKey}
-        existingSpots={activeDayData.schedule.map((s) => s.spot_name)}
-        onImport={handleAiImport}
-      />
 
       {/* Explore modal */}
       {showExplore && (
@@ -206,151 +208,96 @@ export function ItineraryView({ plan, destination, onPlanChange }: Props) {
   );
 }
 
-function DaySchedule({
-  dayKey, day, dayIdx, editMode, onTimeUpdate, onDragEnd,
+function DayTimeline({
+  dayKey, day, editMode, onDragEnd, onRemove,
 }: {
   dayKey: string;
   day: import("../types").DayPlan;
-  dayIdx: number;
   editMode: boolean;
-  onTimeUpdate: (dayKey: string, idx: number, field: "start" | "end", val: string) => void;
   onDragEnd: (schedule: import("../types").ScheduleItem[]) => void;
+  onRemove: (idx: number) => void;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!listRef.current || !editMode) return;
-    const sortable = Sortable.create(listRef.current, {
-      handle: ".drag-handle",
-      animation: 200,
-      easing: "cubic-bezier(0.25, 0.46, 0.45, 0.94)",
-      onEnd: (evt) => {
-        const items = Array.from(listRef.current!.children).map((el) => {
-          const idx = parseInt(el.getAttribute("data-idx") || "0", 10);
-          return day.schedule[idx];
-        });
-        if (evt.oldIndex !== undefined && evt.newIndex !== undefined) {
-          const reordered = [...day.schedule];
-          const [moved] = reordered.splice(evt.oldIndex, 1);
-          reordered.splice(evt.newIndex, 0, moved);
-          onDragEnd(reordered);
-        }
-      },
-    });
-    return () => sortable.destroy();
+    if (!listRef.current) return;
+    if (editMode) {
+      const sortable = Sortable.create(listRef.current, {
+        handle: ".drag-handle",
+        animation: 200,
+        easing: "cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+        ghostClass: "sortable-ghost",
+        onEnd: (evt) => {
+          if (evt.oldIndex !== undefined && evt.newIndex !== undefined) {
+            const reordered = [...day.schedule];
+            const [moved] = reordered.splice(evt.oldIndex, 1);
+            reordered.splice(evt.newIndex, 0, moved);
+            onDragEnd(reordered);
+          }
+        },
+      });
+      return () => sortable.destroy();
+    }
   }, [editMode, day.schedule]);
 
   if (day.schedule.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-2xl bg-white py-12 shadow-sm ring-1 ring-gray-100">
-        <p className="text-3xl">📭</p>
-        <p className="mt-2 text-sm text-gray-400">尚未安排行程</p>
-        <p className="text-xs text-gray-300 mt-1">點擊「探索景點」加入景點</p>
+      <div className="h-full flex flex-col items-center justify-center text-slate-400 text-center space-y-4 pt-10">
+        <MapPin size={64} weight="thin" className="text-slate-200" />
+        <p className="text-sm">畫布還是空的！<br />點擊上方「探索景點」或讓 AI 幫您編排</p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100">
-      <div ref={listRef} className="divide-y divide-gray-50">
-        {day.schedule.map((item, idx) => {
-          const [start, end] = item.time_slots.split(" - ");
-          return (
+    <div ref={listRef}>
+      {day.schedule.map((item, idx) => {
+        const isLast = idx === day.schedule.length - 1;
+        return (
+          <div
+            key={idx}
+            data-idx={idx}
+            className={`relative pl-12 pb-6 timeline-line ${isLast ? "last-item" : ""}`}
+          >
             <div
-              key={idx}
-              data-idx={idx}
-              className={`flex items-stretch gap-2 px-4 py-3 transition ${editMode ? "cursor-grab active:cursor-grabbing" : ""}`}
-            >
-              {/* Drag handle */}
-              {editMode && (
-                <div className="drag-handle flex items-center text-gray-300">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                    <circle cx="5" cy="3" r="1.5" />
-                    <circle cx="11" cy="3" r="1.5" />
-                    <circle cx="5" cy="8" r="1.5" />
-                    <circle cx="11" cy="8" r="1.5" />
-                    <circle cx="5" cy="13" r="1.5" />
-                    <circle cx="11" cy="13" r="1.5" />
-                  </svg>
-                </div>
-              )}
+              className={`absolute left-[13px] top-1 w-4 h-4 rounded-full border-4 border-white shadow-sm z-10 ${
+                idx === 0 ? "bg-slate-800" : "bg-primary-blue"
+              }`}
+            />
 
-              {/* Time */}
-              <div className="flex w-14 shrink-0 flex-col items-center pt-0.5">
-                {editMode ? (
-                  <div className="flex flex-col gap-0.5">
-                    <input value={start} onChange={(e) => onTimeUpdate(dayKey, idx, "start", e.target.value)}
-                      className="w-14 rounded border border-gray-200 px-1 py-0.5 text-center text-[11px] focus:border-korea-blue focus:outline-none" />
-                    <span className="text-[10px] text-gray-300">至</span>
-                    <input value={end} onChange={(e) => onTimeUpdate(dayKey, idx, "end", e.target.value)}
-                      className="w-14 rounded border border-gray-200 px-1 py-0.5 text-center text-[11px] focus:border-korea-blue focus:outline-none" />
-                  </div>
-                ) : (
-                  <>
-                    <span className="text-xs font-bold text-korea-blue">{start}</span>
-                    <span className="my-0.5 h-4 w-px bg-gray-200" />
-                    <span className="text-[11px] text-gray-400">{end}</span>
-                  </>
-                )}
+            <div className="text-xs font-bold text-slate-500 mb-1">{item.time_slots?.split(" - ")[0] || "10:00"}</div>
+
+            <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm hover:shadow-md transition-all relative group flex items-start gap-3">
+              {/* Drag handle */}
+              <div className="drag-handle text-slate-300 hover:text-slate-500 pt-1 shrink-0 px-1 -ml-1">
+                <DotsSixVertical size={20} weight="bold" />
               </div>
 
-              {/* Timeline */}
-              {!editMode && (
-                <div className="flex flex-col items-center pt-1.5">
-                  <div className="h-2.5 w-2.5 rounded-full bg-korea-blue ring-2 ring-white" />
-                  {idx < day.schedule.length - 1 && <div className="mt-0.5 h-full w-0.5 bg-gray-100" />}
-                </div>
-              )}
-
-              {/* Content */}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-gray-800 truncate">{item.spot_name}</p>
-                {item.korean_name && <p className="text-[11px] text-gray-400 truncate">{item.korean_name}</p>}
+                <h3 className="font-bold text-slate-800 text-base mb-0.5 truncate">{item.spot_name}</h3>
+                <p className="text-xs text-slate-500 truncate">{item.korean_name || "自訂景點"}</p>
 
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {item.estimated_stay_mins > 0 && (
-                    <span className="rounded-md bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-500">
-                      ⏱ {Math.floor(item.estimated_stay_mins / 60)}h{item.estimated_stay_mins % 60}m
-                    </span>
-                  )}
-                  {item.is_reservation_required && (
-                    <span className="rounded-md bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-600">📅 需預約</span>
-                  )}
-                </div>
-
-                {!editMode && item.notices && item.notices.length > 0 && (
-                  <div className="mt-1.5 space-y-0.5">
+                {item.notices && item.notices.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
                     {item.notices.map((n, ni) => (
-                      <p key={ni} className={`flex items-start gap-1 text-[11px] ${n.includes("公休") || n.includes("注意") || n.includes("警告") ? "text-red-500" : "text-amber-600"}`}>
-                        <span className="shrink-0">{n.includes("公休") || n.includes("注意") || n.includes("警告") ? "⚠️" : "💡"}</span>
+                      <span key={ni} className={`text-[10px] px-1.5 py-0.5 rounded ${n.includes("公休") ? "bg-red-50 text-red-500" : "bg-amber-50 text-amber-600"}`}>
                         {n}
-                      </p>
+                      </span>
                     ))}
                   </div>
                 )}
 
-                {!editMode && item.is_reservation_required && item.reservation_guide && (
-                  <div className="mt-1.5 rounded-lg border border-red-100 bg-red-50 px-2.5 py-1.5">
-                    <p className="text-[11px] text-red-700">📅 {item.reservation_guide}</p>
-                  </div>
-                )}
-
-                {!editMode && item.transit_to_next && idx < day.schedule.length - 1 && (
-                  <div className="mt-2 flex items-center gap-2 rounded-lg bg-gray-50 px-2.5 py-1.5">
-                    <span className="text-xs">{modeIcon[item.transit_to_next.mode] || "🚇"} {item.transit_to_next.mode}</span>
-                    <span className="text-xs text-gray-400">{item.transit_to_next.duration_mins}分</span>
-                    <span className={`text-xs font-medium ${costColor(item.transit_to_next.estimated_cost_krw)}`}>
-                      ₩{item.transit_to_next.estimated_cost_krw.toLocaleString()}
-                    </span>
-                  </div>
-                )}
+                <button
+                  onClick={() => onRemove(idx)}
+                  className="absolute top-3 right-3 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"
+                >
+                  <Trash size={16} weight="bold" />
+                </button>
               </div>
             </div>
-          );
-        })}
-      </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
-
-
