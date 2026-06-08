@@ -8,112 +8,67 @@ interface Props {
   activeDayKey: string;
 }
 
-const COLORS = ["#0052cc", "#CD2E3A", "#D4A843", "#2D7D46", "#6B3FA0", "#E8734A"];
+const COLORS = ["#0052cc", "#CD2E3A", "#D4A843", "#2D7D46", "#6B3FA0"];
 
 export function TripMap({ plan, activeDayKey }: Props) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
 
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
-
-    const map = L.map(containerRef.current, {
-      zoomControl: false,
-      attributionControl: false,
-    }).setView([20, 0], 2);
-
-    L.control.zoom({ position: "topright" }).addTo(map);
-
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-      attribution: "&copy; CARTO",
-      maxZoom: 18,
-    }).addTo(map);
-
+    if (!ref.current || mapRef.current) return;
+    const map = L.map(ref.current, { zoomControl: false, attributionControl: false }).setView([20, 0], 2);
+    L.control.zoom({ position: "bottomright" }).addTo(map);
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", { maxZoom: 18 }).addTo(map);
     mapRef.current = map;
-
-    return () => {
-      map.remove();
-      mapRef.current = null;
-    };
+    return () => { map.remove(); mapRef.current = null; };
   }, []);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
+    map.eachLayer((l) => { if (l instanceof L.Marker || l instanceof L.Polyline) map.removeLayer(l); });
+
     const dayKeys = Object.keys(plan.itinerary).sort((a, b) =>
-      parseInt(a.replace(/\D/g, "")) - parseInt(b.replace(/\D/g, ""))
+      parseInt(a.replace(/\D/g,"")) - parseInt(b.replace(/\D/g,""))
     );
-
-    // Remove old layers
-    map.eachLayer((layer) => {
-      if (layer instanceof L.Marker || layer instanceof L.Polyline) {
-        map.removeLayer(layer);
-      }
-    });
-
     const bounds = L.latLngBounds([]);
     const activeCoords: L.LatLng[] = [];
 
-    dayKeys.forEach((key, dayIdx) => {
+    dayKeys.forEach((key, di) => {
       const day = plan.itinerary[key];
-      const color = COLORS[dayIdx % COLORS.length];
+      const color = COLORS[di % COLORS.length];
       const isActive = key === activeDayKey;
-      const opacity = isActive ? 0.6 : 0.12;
+      const coords: L.LatLng[] = [];
 
-      const dayCoords: L.LatLng[] = [];
-
-      day.schedule.forEach((item, spotIdx) => {
+      day.schedule.forEach((item, si) => {
         if (item.lat != null && item.lng != null) {
           const pos = L.latLng(item.lat, item.lng);
-          dayCoords.push(pos);
+          coords.push(pos);
           bounds.extend(pos);
           if (isActive) activeCoords.push(pos);
-
-          const marker = L.marker(pos, {
+          const m = L.marker(pos, {
             icon: L.divIcon({
               className: "",
-              html: `<div style="
-                background-color: ${color}; width: ${isActive ? 24 : 20}px; height: ${isActive ? 24 : 20}px;
-                border-radius: 50%; border: 3px solid white;
-                box-shadow: 0 2px 6px rgba(0,0,0,${isActive ? 0.3 : 0.1});
-                display: flex; align-items: center; justify-content: center;
-                opacity: ${opacity + 0.4};
-              "><div style="width:6px; height:6px; background:white; border-radius:50%;"></div></div>`,
-              iconSize: isActive ? [24, 24] : [20, 20],
-              iconAnchor: isActive ? [12, 12] : [10, 10],
+              html: `<div style="background:${color};width:22px;height:22px;border-radius:50%;border:2.5px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;opacity:${isActive?1:0.3};font-size:10px;font-weight:bold;color:white">${di+1}</div>`,
+              iconSize: [22, 22], iconAnchor: [11, 11],
             }),
           }).addTo(map);
-
-          marker.bindPopup(`
-            <div style="min-width:140px;font-family:sans-serif">
-              <b>${spotIdx + 1}. ${item.spot_name}</b>
-              <div style="color:#666;font-size:11px;margin-top:2px">${item.time_slots || ""}</div>
-            </div>
-          `);
+          m.bindPopup(`<b>${si+1}. ${item.spot_name}</b>`);
         }
       });
 
-      // Route line
-      if (dayCoords.length > 1) {
-        L.polyline(dayCoords, {
-          color,
-          weight: isActive ? 4 : 2,
-          opacity,
-          dashArray: "8, 8",
-        }).addTo(map);
+      if (coords.length > 1) {
+        L.polyline(coords, { color, weight: isActive ? 3 : 1.5, opacity: isActive ? 0.6 : 0.15, dashArray: "6, 8" }).addTo(map);
       }
     });
 
     if (activeCoords.length > 0) {
-      const activeBounds = L.latLngBounds(activeCoords);
-      map.flyToBounds(activeBounds, { padding: [50, 50], maxZoom: 14, duration: 0.8 });
+      map.flyToBounds(L.latLngBounds(activeCoords), { padding: [40, 40], maxZoom: 14, duration: 0.6 });
     } else if (bounds.isValid()) {
-      map.flyToBounds(bounds, { padding: [50, 50], maxZoom: 12, duration: 0.8 });
+      map.flyToBounds(bounds, { padding: [40, 40], maxZoom: 12, duration: 0.6 });
     }
   }, [plan, activeDayKey]);
 
-  return (
-    <div ref={containerRef} className="w-full h-full min-h-[300px]" />
-  );
+  return <div ref={ref} className="w-full h-52 rounded-xl overflow-hidden shadow" />;
 }

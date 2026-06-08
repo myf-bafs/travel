@@ -1,15 +1,12 @@
 import { useState } from "react";
-import { GLOBAL_SPOTS } from "../types";
-import { ArrowsDownUp, MapPin, CalendarBlank, AirplaneTilt } from "@phosphor-icons/react";
 
 interface Props {
-  onSubmit: (data: { destination: string; startDate: string; totalDays: number; spots?: string[] }) => void;
+  onSubmit: (data: { destination: string; startDate: string; totalDays: number }) => void;
   loading: boolean;
   onClose: () => void;
 }
 
-const DAYS_OPTIONS = [1, 2, 3, 4, 5, 6, 7];
-const CITIES = [...new Set(GLOBAL_SPOTS.map((s) => s.city))];
+const CITIES = ["東京", "首爾", "台北", "巴黎", "曼谷", "大阪", "京都", "紐約", "倫敦"];
 
 export function CreateTripModal({ onSubmit, loading, onClose }: Props) {
   const [destination, setDestination] = useState("東京");
@@ -20,84 +17,61 @@ export function CreateTripModal({ onSubmit, loading, onClose }: Props) {
   });
   const [totalDays, setTotalDays] = useState(3);
 
-  const handleSubmit = () => {
-    if (!destination || !startDate) return;
-    onSubmit({ destination, startDate, totalDays });
-  };
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden modal-enter p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-            <AirplaneTilt className="text-primary-blue" size={24} weight="fill" />
-            建立新旅程
-          </h3>
-          <button onClick={onClose} className="p-1 text-slate-400 hover:bg-slate-100 rounded-md transition">
-            <span className="text-xl">✕</span>
-          </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-2xl w-full max-w-sm p-5">
+        <div className="flex justify-between items-center mb-5">
+          <h3 className="text-lg font-bold">🌍 建立新旅程</h3>
+          <button onClick={onClose} className="text-gray-400 text-lg">✕</button>
         </div>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">目的地 (城市或國家)</label>
+            <label className="text-xs text-gray-500 mb-1 block">目的地</label>
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {CITIES.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setDestination(c)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium border transition ${
+                    destination === c ? "bg-blue-500 text-white border-blue-500" : "bg-white text-gray-600 border-gray-200"
+                  }`}
+                >{c}</button>
+              ))}
+            </div>
             <input
               type="text"
               value={destination}
               onChange={(e) => setDestination(e.target.value)}
-              placeholder="例如：東京、巴黎、台北..."
-              list="city-list"
-              className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary-blue outline-none text-sm"
+              placeholder="或其他城市名稱"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none"
             />
-            <datalist id="city-list">
-              {CITIES.map((c) => <option key={c} value={c} />)}
-            </datalist>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">出發日期</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary-blue outline-none text-sm"
-              />
+              <label className="text-xs text-gray-500 mb-1 block">出發日期</label>
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">天數</label>
-              <div className="flex items-center gap-2">
-                {DAYS_OPTIONS.map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => setTotalDays(n)}
-                    className={`w-10 h-10 rounded-lg text-sm font-bold transition ${
-                      totalDays === n
-                        ? "bg-primary-blue text-white"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
-                  >
-                    {n}
-                  </button>
+              <label className="text-xs text-gray-500 mb-1 block">天數</label>
+              <div className="flex gap-1">
+                {[1,2,3,4,5].map((n) => (
+                  <button key={n} onClick={() => setTotalDays(n)}
+                    className={`flex-1 py-2 rounded-lg text-sm font-bold transition ${
+                      totalDays === n ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-600"
+                    }`}>{n}</button>
                 ))}
               </div>
             </div>
           </div>
         </div>
 
-        <button
-          onClick={handleSubmit}
+        <button onClick={() => onSubmit({destination, startDate, totalDays})}
           disabled={loading || !destination || !startDate}
-          className="w-full bg-primary-blue hover:bg-blue-700 text-white font-bold py-3 rounded-xl mt-8 transition shadow-md disabled:opacity-40"
-        >
-          {loading ? (
-            <span className="flex items-center justify-center gap-2">
-              <span className="spinner" />
-              AI 規劃中...
-            </span>
-          ) : (
-            "開始規劃畫布"
-          )}
+          className="w-full bg-blue-500 text-white font-bold py-3 rounded-xl mt-6 disabled:opacity-40">
+          {loading ? "AI 規劃中..." : "✨ 開始規劃"}
         </button>
       </div>
     </div>
